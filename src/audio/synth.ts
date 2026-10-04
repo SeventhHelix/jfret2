@@ -27,7 +27,7 @@ function pluckBuffer(c: BaseAudioContext, midi: number): AudioBuffer {
   const freq = midiToFreq(midi);
   // Delay line length is period + allpass fractional delay, so pitch stays in tune.
   const P = sr / freq - 0.5;
-  const period = Math.max(2, Math.floor(P));
+  const period = Math.max(2, Math.floor(P - 0.1)); // keep frac in [0.1, 1.1) so the allpass stays stable
   const frac = P - period;
   const C = (1 - frac) / (1 + frac);
   const len = Math.floor(sr * 3);
