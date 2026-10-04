@@ -56,7 +56,8 @@ export class Player {
       this.time += beats * beatSec;
     }
     this.schedule();
-    this.timer = window.setInterval(() => this.schedule(), TIMER_MS);
+    // report() also runs here so end-of-song and the playhead still update when rAF is paused (background tab).
+    this.timer = window.setInterval(() => { this.schedule(); this.report(); }, TIMER_MS);
     const frame = () => {
       this.report();
       if (this.timer !== undefined) this.raf = requestAnimationFrame(frame);
