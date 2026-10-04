@@ -1,7 +1,7 @@
 import { useEffect } from 'preact/hooks';
-import { moveNotes, setDuration } from '../model/ops';
+import { moveNotes } from '../model/ops';
 import {
-  commit, deleteBeforeCursor, deleteSelection, editMode, grid, redo, selectAll, selection, song, toggleLoop, togglePlay, undo,
+  commit, deleteBeforeCursor, deleteSelection, editMode, grid, redo, selectAll, selection, setBaseLength, song, toggleDotted, toggleLoop, togglePlay, undo,
 } from '../state/store';
 
 // 1=whole 2=half 3=quarter 4=8th 5=16th 6=32nd
@@ -21,6 +21,8 @@ export function useKeyboard() {
       if (e.key === 'Escape') { selection.value = new Set(); return; }
       if (!editMode.value) return;
       if (mod && key === 'a') { e.preventDefault(); selectAll(); return; }
+      if (DUR_KEYS[e.key] && !mod) { setBaseLength(DUR_KEYS[e.key]); return; } // also resets selected notes
+      if (e.key === '.' && !mod) { toggleDotted(); return; }
       const sel = selection.value;
       if (!sel.size) {
         if (e.key === 'Backspace') { e.preventDefault(); deleteBeforeCursor(); }
@@ -36,8 +38,6 @@ export function useKeyboard() {
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
         commit(moveNotes(song.value, sel, 0, e.key === 'ArrowUp' ? -1 : 1));
-      } else if (DUR_KEYS[e.key] && !mod) {
-        commit(setDuration(song.value, sel, DUR_KEYS[e.key]));
       }
     };
     // Firefox clicks a focused button on Space keyup; stop that.

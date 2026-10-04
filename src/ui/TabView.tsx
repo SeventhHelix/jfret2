@@ -181,7 +181,7 @@ export function TabView() {
       {!s.notes.length ? (
         <div class="tv-empty">
           {editMode.value
-            ? 'Click any fret on the neck below to start sketching. Each click adds an 8th note; fix the rhythm afterwards.'
+            ? 'Click any fret on the neck below to start sketching. Pick the note length under the neck (quarter by default); fix the rhythm afterwards.'
             : 'This riff is empty. Switch to Edit to start one.'}
         </div>
       ) : (

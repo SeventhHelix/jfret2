@@ -1,7 +1,10 @@
 import { useState } from 'preact/hooks';
 import { Song } from '../model/song';
 import { applyFeel, evenOut, legato, quantize } from '../model/ops';
-import { commit, deleteSelection, feel, grid, selection, setLoopFromSelection, song, targetIds } from '../state/store';
+import {
+  NOTE_LENGTHS, baseLength, commit, deleteSelection, dotted, feel, grid, selection, setBaseLength, setLoopFromSelection, song,
+  targetIds, toggleDotted,
+} from '../state/store';
 
 const GRIDS = [
   { label: '1/4', t: 24 },
@@ -18,7 +21,20 @@ export function Toolbar() {
   const apply = (f: (s: Song, ids: Set<number>) => Song) => commit(f(song.value, targetIds()));
 
   return (
-    <div class="panel row">
+    <div class="panel toolbar">
+      <div class="row">
+        <span class="muted" style={{ minWidth: 92 }}>Note length</span>
+        <span class="seg lengths" role="group" aria-label="Note length">
+          {NOTE_LENGTHS.map((l, i) => (
+            <button key={l.ticks} class={baseLength.value === l.ticks ? "on" : ""} onClick={() => setBaseLength(l.ticks)}
+              title={`${l.name} note (key ${i + 1})`}>{l.label}</button>
+          ))}
+        </span>
+        <button class={`dot-btn${dotted.value ? " on" : ""}`} onClick={toggleDotted} disabled={baseLength.value < 6}
+          title="Dotted: one and a half times as long (key .)">● Dotted</button>
+        <span class="muted">{count ? `Applies to new notes and resets the ${count} selected` : "Used for new notes"}</span>
+      </div>
+      <div class="row">
       <span class={count ? 'sel-count' : 'muted'} style={{ minWidth: 170 }}>
         {count ? `${count} note${count === 1 ? '' : 's'} selected` : 'Nothing selected: tools affect all notes'}
       </span>
@@ -41,6 +57,7 @@ export function Toolbar() {
       <button onClick={setLoopFromSelection}>Loop selection</button>
       <span class="spacer" />
       <button class="danger" onClick={deleteSelection} title="Delete selected notes (Del)">Delete</button>
+      </div>
     </div>
   );
 }

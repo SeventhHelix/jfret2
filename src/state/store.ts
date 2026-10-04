@@ -1,6 +1,6 @@
 import { batch, computed, effect, signal } from '@preact/signals';
 import { Song, barTicks, emptySong, notesInRange, pitchOf, songEndTick, soundingAt } from '../model/song';
-import { addNote, deleteNotes, shiftFrom } from '../model/ops';
+import { addNote, deleteNotes, setDuration, shiftFrom } from '../model/ops';
 import { History } from '../model/history';
 import { decodeSong, encodeSong } from '../codec/codec';
 import { Player } from '../audio/player';
@@ -8,7 +8,19 @@ import { Player } from '../audio/player';
 export type Loop = { start: number; end: number };
 export type FretMode = 'live' | 'bar';
 
-export const DEFAULT_DUR = 12; // an 8th note
+// Note length used for new fretboard entries (ticks; PPQ 24). Quarter by default.
+export const NOTE_LENGTHS = [
+  { ticks: 96, label: '1/1', name: 'Whole' },
+  { ticks: 48, label: '1/2', name: 'Half' },
+  { ticks: 24, label: '1/4', name: 'Quarter' },
+  { ticks: 12, label: '1/8', name: 'Eighth' },
+  { ticks: 6, label: '1/16', name: 'Sixteenth' },
+  { ticks: 3, label: '1/32', name: 'Thirty-second' },
+] as const;
+export const baseLength = signal(24);
+export const dotted = signal(false);
+/** Dotted adds half the value; a dotted 32nd (4.5 ticks) can't be represented, so it stays plain. */
+export const entryDur = computed(() => (dotted.value && baseLength.value >= 6 ? baseLength.value * 1.5 : baseLength.value));
 
 // ---- state ----
 export const song = signal<Song>(emptySong());
@@ -192,7 +204,7 @@ export function placeCursor(tick: number) {
 
 /**
  * Fretboard click in edit mode.
- * - Normal: insert an 8th at the cursor. If a note already starts within that 8th, ripple it
+ * - Normal: insert a note of the chosen length at the cursor. If a note already starts within that span, ripple it
  *   (and everything after it) later, so the new note goes in front of it. Gaps are filled without shifting.
  * - stack (Shift-click): add the note at the same time as the previous insert (chord / double-stop).
  *   A note already on that string at that time is replaced, since one string can't sound two notes.
@@ -204,7 +216,7 @@ export function insertNote(string: number, fret: number, stack = false) {
     const partner = s0.notes.find(n => n.start === start);
     const clash = s0.notes.find(n => n.start === start && n.string === string);
     const base = clash ? deleteNotes(s0, new Set([clash.id])) : s0;
-    const { song: next } = addNote(base, { start, dur: partner?.dur ?? DEFAULT_DUR, string, fret });
+    const { song: next } = addNote(base, { start, dur: partner?.dur ?? entryDur.value, string, fret });
     batch(() => {
       commit(next);
       selection.value = new Set();
@@ -215,15 +227,16 @@ export function insertNote(string: number, fret: number, stack = false) {
   }
   const now = performance.now();
   const start = cursor.value;
-  const collides = s0.notes.some(n => n.start >= start && n.start < start + DEFAULT_DUR);
-  const base = collides ? shiftFrom(s0, start, DEFAULT_DUR) : s0;
-  const { song: next, id } = addNote(base, { start, dur: DEFAULT_DUR, string, fret });
+  const dur = entryDur.value;
+  const collides = s0.notes.some(n => n.start >= start && n.start < start + dur);
+  const base = collides ? shiftFrom(s0, start, dur) : s0;
+  const { song: next, id } = addNote(base, { start, dur, string, fret });
   if (lastClick && now - lastClick < PHRASE_GAP_MS) feel.set(id, now - lastClick);
   lastClick = now;
   lastInsertStart = start;
   batch(() => {
     commit(next);
-    cursor.value = start + DEFAULT_DUR;
+    cursor.value = start + dur;
     selection.value = new Set();
     if (!playing.value) playhead.value = start;
   });
@@ -355,4 +368,20 @@ export function startAutosave() {
       errorMsg.value = "That link couldn't be read.";
     }
   });
+}
+
+// ---- note length palette ----
+function applyLengthToSelection() {
+  if (selection.value.size) commit(setDuration(song.value, selection.value, entryDur.value));
+}
+
+/** Pick the length for new notes; with notes selected, also resets them to it. */
+export function setBaseLength(ticks: number) {
+  baseLength.value = ticks;
+  applyLengthToSelection();
+}
+
+export function toggleDotted() {
+  dotted.value = !dotted.value;
+  applyLengthToSelection();
 }

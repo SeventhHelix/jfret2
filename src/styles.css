@@ -146,3 +146,9 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 .roll-note.sel .rn-pos, .roll-note.hot .rn-pos { background: #111; }
 .roll-note.tint.sel { background: var(--soft); border-color: #fff; }
 .roll-note.tint.hot { background: var(--accent); border-color: var(--accent); }
+
+/* note length palette */
+.toolbar { display: flex; flex-direction: column; gap: 8px; }
+.toolbar > .row + .row { padding-top: 8px; border-top: 1px solid var(--line); }
+.seg.lengths button { min-width: 46px; font-variant-numeric: tabular-nums; }
+.dot-btn:disabled { opacity: 0.4; cursor: not-allowed; }
