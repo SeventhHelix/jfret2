@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Note, Song, emptySong } from './song';
 import {
-  addNote, deleteNotes, moveNotes, resizeNotes, setDuration, quantize, applyFeel, evenOut, legato,
+  addNote, deleteNotes, moveNotes, resizeNotes, setDuration, quantize, applyFeel, evenOut, legato, shiftFrom,
 } from './ops';
 
 const mk = (notes: Omit<Note, 'id'>[]): Song => ({ ...emptySong(), notes: notes.map((x, i) => ({ ...x, id: i + 1 })) });
@@ -130,5 +130,17 @@ describe('central clamp', () => {
 
   it('moveNotes with dTicks = 0 leaves starts unchanged', () => {
     expect(starts(moveNotes(mk([note(5), note(30)]), ids(1, 2), 0, 0))).toEqual([5, 30]);
+  });
+});
+
+describe('shiftFrom', () => {
+  it('shifts notes starting at or after a tick, leaving earlier ones', () => {
+    const s = mk([note(0), note(12), note(24)]);
+    expect(starts(shiftFrom(s, 12, 12))).toEqual([0, 24, 36]);
+  });
+
+  it('returns the same song when nothing is at or after the tick', () => {
+    const s = mk([note(0)]);
+    expect(shiftFrom(s, 12, 12)).toBe(s);
   });
 });

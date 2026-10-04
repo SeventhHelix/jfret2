@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { STRINGS, Song, TUNINGS, barTicks, beatTicks, noteName, songEndTick } from '../model/song';
 import { moveNotes, resizeNotes } from '../model/ops';
-import { commitFrom, cursor, grid, hotIds, loop, loopOn, playhead, playing, seek, selection, song } from '../state/store';
+import { commitFrom, cursor, grid, hotIds, loop, loopOn, placeCursor, playhead, playing, selection, song } from '../state/store';
 
 const PX = 4;    // pixels per tick (quarter note = 96 px)
 const LANE = 30; // px per string lane
@@ -87,16 +87,15 @@ export function TabRoll() {
     drag.current = null;
     if (!d) return;
     if (d.kind !== 'marquee') {
-      if (song.value === d.orig) { if (!playing.value) seek(d.noteStart); } // plain click on a note
+      if (song.value === d.orig) placeCursor(d.noteStart); // plain click on a note: insert in front of it next
       else commitFrom(d.orig);
       return;
     }
     setMarquee(null);
     if (Math.abs(d.x1 - d.x0) + Math.abs(d.y1 - d.y0) <= 4) {
       const t = Math.max(0, Math.round(d.x0 / PX / grid.value) * grid.value);
-      cursor.value = t;
+      placeCursor(t);
       if (!d.additive) selection.value = new Set();
-      if (!playing.value) seek(t);
       return;
     }
     const xa = Math.min(d.x0, d.x1) / PX, xb = Math.max(d.x0, d.x1) / PX;

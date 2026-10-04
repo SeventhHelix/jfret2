@@ -20,8 +20,9 @@ export function App() {
           <TabRoll />
           <p class="hints">
             <span>Click frets to sketch</span>
+            <span><kbd>Shift</kbd>+click a fret to stack a chord</span>
+            <span>Click a note (tab or roll) to put the <b class="c-cursor">green insert cursor</b> in front of it</span>
             <span>Drag a block to move it; drag its right edge to resize</span>
-            <span>Click empty space to move the <b class="c-cursor">green insert cursor</b></span>
             <span>Drag across the tab to loop</span>
             <span><kbd>Space</kbd> play</span>
             <span><kbd>1</kbd>–<kbd>6</kbd> note length</span>

@@ -113,3 +113,9 @@ export function legato(song: Song, ids: Set<number>): Song {
     return next === undefined ? n : { ...n, dur: next - n.start };
   }));
 }
+
+/** Ripple: push every note starting at or after `from` later by `dTicks` (used for inserting before a note). */
+export function shiftFrom(song: Song, from: number, dTicks: number): Song {
+  if (!song.notes.some(n => n.start >= from)) return song;
+  return withNotes(song, song.notes.map(n => (n.start >= from ? { ...n, start: n.start + dTicks } : n)));
+}

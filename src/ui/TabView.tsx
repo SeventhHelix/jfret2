@@ -2,7 +2,7 @@ import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { barTicks, beatTicks, songEndTick } from '../model/song';
 import { DisplayEvent, RhythmValue, layoutBar } from '../notation/rhythm';
-import { editMode, grid, hotIds, loop, loopOn, playhead, playing, seek, selection, song } from '../state/store';
+import { cursor, editMode, grid, hotIds, loop, loopOn, placeCursor, playhead, playing, seek, selection, song } from '../state/store';
 
 const LEFT = 36;      // room for the "TAB" label
 const PAD = 12;       // inner padding per bar
@@ -31,7 +31,8 @@ export function TabView() {
 
   const bar = barTicks(s.timeSig);
   const beat = beatTicks(s.timeSig);
-  const nBars = Math.max(1, Math.ceil(songEndTick(s) / bar));
+  // In edit mode, leave room for the insert cursor so it can sit at the start of a fresh bar.
+  const nBars = Math.max(1, Math.ceil(songEndTick(s) / bar), editMode.value ? Math.floor(cursor.value / bar) + 1 : 0);
   const perLine = Math.max(1, Math.floor((w - LEFT) / MIN_BAR_W));
   const barW = (w - LEFT) / perLine;
   const lines = Math.ceil(nBars / perLine);
@@ -80,7 +81,9 @@ export function TabView() {
       if (end > start) { loop.value = { start, end }; loopOn.value = true; }
       return;
     }
-    seek(d.noteStart ?? snap(d.tick));
+    const t = d.noteStart ?? snap(d.tick);
+    if (editMode.value) placeCursor(t); // cursor goes AT the clicked note, so the next fret click lands in front of it
+    seek(t);
   };
 
   // Shade a tick range, split across bars/lines.
@@ -186,6 +189,10 @@ export function TabView() {
         {lp && shade(lp.start, lp.end, 'tv-loop')}
         {dragLoop && shade(Math.min(dragLoop.a, dragLoop.b), Math.max(dragLoop.a, dragLoop.b), 'tv-loop preview')}
         {els}
+        {editMode.value && (() => {
+          const cb = barOf(cursor.value);
+          return <line class="tv-cursor" x1={xAt(cursor.value) - 7} x2={xAt(cursor.value) - 7} y1={rowTop(cb) - 10} y2={rowTop(cb) + STAFF_H + 10} />;
+        })()}
         {showHead && (
           <line class="tv-playhead" x1={xAt(playhead.value)} x2={xAt(playhead.value)} y1={rowTop(hb) - 8} y2={rowTop(hb) + STAFF_H + 8} />
         )}

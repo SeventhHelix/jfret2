@@ -1,6 +1,6 @@
 import { batch, computed, effect, signal } from '@preact/signals';
 import { Song, barTicks, emptySong, notesInRange, pitchOf, songEndTick, soundingAt } from '../model/song';
-import { addNote, deleteNotes } from '../model/ops';
+import { addNote, deleteNotes, shiftFrom } from '../model/ops';
 import { History } from '../model/history';
 import { decodeSong, encodeSong } from '../codec/codec';
 import { Player } from '../audio/player';
@@ -121,12 +121,47 @@ export function previewNote(string: number, fret: number) {
   player.preview(pitchOf(song.value, { string, fret }));
 }
 
-export function insertNote(string: number, fret: number) {
+// Start tick of the last fretboard insert, so Shift-click can stack a chord onto it.
+let lastInsertStart: number | null = null;
+
+/** Put the insert cursor AT a tick: the next fret click lands there, pushing any note already there later. */
+export function placeCursor(tick: number) {
+  cursor.value = Math.max(0, Math.round(tick));
+  lastInsertStart = null;
+  if (!playing.value) seek(cursor.value);
+}
+
+/**
+ * Fretboard click in edit mode.
+ * - Normal: insert an 8th at the cursor. If a note already starts within that 8th, ripple it
+ *   (and everything after it) later, so the new note goes in front of it. Gaps are filled without shifting.
+ * - stack (Shift-click): add the note at the same time as the previous insert (chord / double-stop).
+ *   A note already on that string at that time is replaced, since one string can't sound two notes.
+ */
+export function insertNote(string: number, fret: number, stack = false) {
+  const s0 = song.value;
+  if (stack && lastInsertStart !== null) {
+    const start = lastInsertStart;
+    const partner = s0.notes.find(n => n.start === start);
+    const clash = s0.notes.find(n => n.start === start && n.string === string);
+    const base = clash ? deleteNotes(s0, new Set([clash.id])) : s0;
+    const { song: next } = addNote(base, { start, dur: partner?.dur ?? DEFAULT_DUR, string, fret });
+    batch(() => {
+      commit(next);
+      selection.value = new Set();
+      if (!playing.value) playhead.value = start;
+    });
+    previewNote(string, fret);
+    return;
+  }
   const now = performance.now();
   const start = cursor.value;
-  const { song: next, id } = addNote(song.value, { start, dur: DEFAULT_DUR, string, fret });
+  const collides = s0.notes.some(n => n.start >= start && n.start < start + DEFAULT_DUR);
+  const base = collides ? shiftFrom(s0, start, DEFAULT_DUR) : s0;
+  const { song: next, id } = addNote(base, { start, dur: DEFAULT_DUR, string, fret });
   if (lastClick && now - lastClick < PHRASE_GAP_MS) feel.set(id, now - lastClick);
   lastClick = now;
+  lastInsertStart = start;
   batch(() => {
     commit(next);
     cursor.value = start + DEFAULT_DUR;
@@ -160,6 +195,20 @@ export const hotIds = computed(() => {
   const t = playhead.value;
   return idSet(playing.value ? soundingAt(notes, t) : notes.filter(n => n.start === t));
 });
+
+/** "Get ready" ring: the next onset after the playhead (wrapping inside an active loop). */
+export const nextIds = computed(() => {
+  const notes = song.value.notes;
+  const t = playhead.value;
+  const lp = loopOn.value ? loop.value : null;
+  const inRange = (n: { start: number }) => !lp || (n.start >= lp.start && n.start < lp.end);
+  let next = notes.find(n => n.start > t && inRange(n))?.start; // notes are sorted by start
+  if (next === undefined && lp) next = notes.find(inRange)?.start;
+  return next === undefined ? new Set<number>() : idSet(notes.filter(n => n.start === next));
+});
+
+/** Notes starting exactly at the insert cursor: the next fret click goes in front of these. */
+export const cursorIds = computed(() => idSet(song.value.notes.filter(n => n.start === cursor.value)));
 
 export const softSource = computed<'live' | 'selection' | 'loop' | 'bar'>(() => {
   if (fretMode.value === 'live') return 'live';
