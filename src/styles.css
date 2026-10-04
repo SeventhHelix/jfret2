@@ -154,7 +154,7 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 .dot-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* scale guide */
-.guide-row { margin-bottom: 8px; }
+.guide-row { margin-bottom: 8px; min-height: 30px; } /* same height with the guide on or off, so toggling never shifts the page */
 .scale-notes { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .sn { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); }
 .sn small { margin-left: 4px; color: var(--muted); font-weight: 500; }
