@@ -5,7 +5,7 @@ import {
   setGuide, softIds, softSource,
   song, toggleView, undo, view,
 } from '../state/store';
-import { fretHue } from './colors';
+import { fretHue, intervalHue } from './colors';
 import { PITCH_NAMES, SCALE_NAMES, ScaleId, guessRoot, intervalName, pc } from '../model/theory';
 
 const ROW_H = 52;
@@ -165,7 +165,9 @@ export function Fretboard() {
             </label>
             <span class="scale-notes">
               {[...scale!].sort((a, b) => pc(a - root) - pc(b - root)).map(p => (
-                <span key={p} class={p === root ? 'sn root' : 'sn'}>{PITCH_NAMES[p]}<small>{intervalName(p, root)}</small></span>
+                <span key={p} class={p === root ? 'sn root' : 'sn'} style={{ '--ic': intervalHue(p - root) } as JSX.CSSProperties}>
+                  {PITCH_NAMES[p]}<small>{intervalName(p, root)}</small>
+                </span>
               ))}
             </span>
           </>
@@ -216,7 +218,7 @@ export function Fretboard() {
                     style={{ left: cellX(f), top: str * ROW_H, width: cellW(f), height: ROW_H }}
                     title={edit ? 'Click to add · Shift-click to stack on the previous note (chord)' : undefined}
                     onPointerDown={e => { e.preventDefault(); onCell(str, f, e.shiftKey); }}>
-                    <span class="fb-dot" style={c ? dotStyle(c, f) : undefined}>
+                    <span class="fb-dot" style={c ? dotStyle(c, f) : inScale ? ({ '--ic': intervalHue(pcCell - root) } as JSX.CSSProperties) : undefined}>
                       {c ? riffLabel : emptyLabel}
                     </span>
                     {showOrder && <span class="fb-ord">{c.order.join('·')}</span>}
