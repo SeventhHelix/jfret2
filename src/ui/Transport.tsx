@@ -45,11 +45,11 @@ export function Transport() {
           <button class="speed-val" onClick={() => { speed.value = 1; }} title="Reset to 100%">{pct}%</button>
         </label>
         <div class="group">
-          <button class={metronome.value ? 'on' : ''} onClick={() => { metronome.value = !metronome.value; }}>Metronome</button>
+          <button class={metronome.value ? 'on' : ''} onClick={() => { metronome.value = !metronome.value; }} title="Metronome click">Click</button>
           <button class={countIn.value ? 'on' : ''} onClick={() => { countIn.value = !countIn.value; }}>Count-in</button>
         </div>
         <span class="spacer" />
-        <button onClick={copy}>{copied ? '✓ Link copied' : 'Copy link'}</button>
+        <button onClick={copy} title="Copy a link to this riff">{copied ? '✓ Copied' : 'Share'}</button>
         <div class="seg" role="group" aria-label="Mode">
           <button class={editMode.value ? 'on' : ''} onClick={() => setEdit(true)}>✎ Edit</button>
           <button class={editMode.value ? '' : 'on'} onClick={() => setEdit(false)}>♫ Practice</button>
