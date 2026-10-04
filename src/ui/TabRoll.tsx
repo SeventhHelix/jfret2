@@ -38,6 +38,7 @@ export function TabRoll() {
   };
 
   const onDown = (e: PointerEvent) => {
+    if (e.button !== 0) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     const p = local(e);
     const blk = (e.target as HTMLElement).closest<HTMLElement>('[data-id]');
@@ -58,7 +59,7 @@ export function TabRoll() {
       ids = new Set([id]);
       selection.value = ids;
     }
-    const resize = e.clientX > blk.getBoundingClientRect().right - 8;
+    const resize = (() => { const r = blk.getBoundingClientRect(); return e.clientX > r.right - Math.min(8, r.width / 3); })();
     const noteStart = song.value.notes.find(n => n.id === id)?.start ?? 0;
     drag.current = { kind: resize ? 'resize' : 'move', x0: p.x, y0: p.y, orig: song.value, ids, noteStart };
   };
@@ -75,7 +76,9 @@ export function TabRoll() {
     }
     const raw = (p.x - d.x0) / PX;
     const dt = e.altKey ? Math.round(raw) : Math.round(raw / grid.value) * grid.value;
-    if (d.kind === 'move') song.value = moveNotes(d.orig, d.ids, dt, Math.round((p.y - d.y0) / LANE));
+    const ds = d.kind === 'move' ? Math.round((p.y - d.y0) / LANE) : 0;
+    if (dt === 0 && ds === 0) { song.value = d.orig; return; }
+    if (d.kind === 'move') song.value = moveNotes(d.orig, d.ids, dt, ds);
     else song.value = resizeNotes(d.orig, d.ids, dt);
   };
 
@@ -120,7 +123,7 @@ export function TabRoll() {
         </div>
         <div class="roll-scroll" ref={scrollRef}>
           <div class="roll" style={{ width, height: LANE * STRINGS, backgroundImage: gridBg }}
-            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
+            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
             {Array.from({ length: STRINGS }, (_, i) => <div key={i} class="roll-lane" style={{ top: i * LANE + LANE / 2 }} />)}
             {lp && <div class="roll-loop" style={{ left: lp.start * PX, width: (lp.end - lp.start) * PX }} />}
             {s.notes.map(n => (

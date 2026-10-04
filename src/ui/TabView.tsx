@@ -20,11 +20,11 @@ export function TabView() {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(900);
   const [dragLoop, setDragLoop] = useState<{ a: number; b: number } | null>(null);
-  const down = useRef<{ x: number; y: number; tick: number } | null>(null);
+  const down = useRef<{ x: number; y: number; tick: number; noteStart: number | null } | null>(null);
 
   useEffect(() => {
     const el = ref.current!;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    const ro = new ResizeObserver(([entry]) => setW(entry.contentRect.width));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -57,9 +57,11 @@ export function TabView() {
   };
 
   const onDown = (e: PointerEvent) => {
+    if (e.button !== 0) return;
     (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
     const p = local(e);
-    down.current = { ...p, tick: tickAt(p.x, p.y) };
+    const fret = (e.target as Element).closest('[data-start]');
+    down.current = { ...p, tick: tickAt(p.x, p.y), noteStart: fret ? Number(fret.getAttribute('data-start')) : null };
   };
   const onMove = (e: PointerEvent) => {
     const d = down.current;
@@ -78,7 +80,7 @@ export function TabView() {
       if (end > start) { loop.value = { start, end }; loopOn.value = true; }
       return;
     }
-    seek(snap(d.tick));
+    seek(d.noteStart ?? snap(d.tick));
   };
 
   // Shade a tick range, split across bars/lines.
@@ -120,7 +122,7 @@ export function TabView() {
       for (const id of ev.noteIds) {
         const n = s.notes.find(nn => nn.id === id)!;
         const cls = `tv-fret${hot.has(id) ? ' hot' : ''}${sel.has(id) ? ' sel' : ''}`;
-        els.push(<text key={`f${id}`} class={cls} x={x} y={y + n.string * GAP}>{n.fret}</text>);
+        els.push(<text key={`f${id}`} data-start={n.start} class={cls} x={x} y={y + n.string * GAP}>{n.fret}</text>);
       }
       if (ev.value.stem !== 'none') els.push(<line key={`st${b}-${ev.start}`} class="tv-stem" x1={x} x2={x} y1={stemTop} y2={stemBottom(ev.value)} />);
       if (ev.value.dotted) els.push(<circle key={`d${b}-${ev.start}`} class="tv-dot" cx={x + 5} cy={stemBottom(ev.value) - 3} r={1.6} />);
@@ -173,7 +175,7 @@ export function TabView() {
 
   return (
     <div class="panel tv" ref={ref}>
-      <svg width={w} height={height} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}>
+      <svg width={w} height={height} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
         {lp && shade(lp.start, lp.end, 'tv-loop')}
         {dragLoop && shade(Math.min(dragLoop.a, dragLoop.b), Math.max(dragLoop.a, dragLoop.b), 'tv-loop preview')}
         {els}

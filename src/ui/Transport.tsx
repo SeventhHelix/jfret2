@@ -1,13 +1,17 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { Song, TUNINGS, TUNING_IDS, TuningId } from '../model/song';
 import {
-  commit, countIn, editMode, loop, loopOn, metronome, newSong, playing, redo, rewind, setLoopFromSelection,
+  commit, countIn, editMode, loop, loopOn, metronome, newSong, playing, redo, rewind, selection, setLoopFromSelection,
   shareUrl, song, speed, togglePlay, undo,
 } from '../state/store';
 
 export function Transport() {
   const s = song.value;
   const [copied, setCopied] = useState(false);
+  const [title, setTitle] = useState(s.title);
+  useEffect(() => setTitle(s.title), [s.title]);
+  const [bpm, setBpm] = useState(String(s.bpm));
+  useEffect(() => setBpm(String(s.bpm)), [s.bpm]);
   const setMeta = (patch: Partial<Song>) => commit({ ...s, ...patch });
   const copy = async () => {
     await navigator.clipboard.writeText(shareUrl());
@@ -21,7 +25,7 @@ export function Transport() {
 
   return (
     <div class="panel row">
-      <input class="title-input" value={s.title} maxLength={60} onChange={e => setMeta({ title: e.currentTarget.value })} />
+      <input class="title-input" value={title} maxLength={60} onInput={e => setTitle(e.currentTarget.value)} onChange={e => setMeta({ title: e.currentTarget.value })} />
       <button onClick={rewind} title="Back to start">⏮</button>
       <button class="play" onClick={togglePlay}>{playing.value ? '⏸ Pause' : '▶ Play'}</button>
       <button class={loopOn.value ? 'on' : ''} onClick={toggleLoop} title="Drag across the tab (or select notes) to set a loop">⟳ Loop</button>
@@ -38,8 +42,9 @@ export function Transport() {
         <>
           <label class="muted">
             BPM{' '}
-            <input type="number" min={30} max={300} value={s.bpm} style={{ width: 70 }}
-              onChange={e => { const v = Number(e.currentTarget.value); if (v >= 30 && v <= 300) setMeta({ bpm: v }); }} />
+            <input type="number" min={30} max={300} value={bpm} style={{ width: 70 }}
+              onInput={e => setBpm(e.currentTarget.value)}
+              onChange={e => { const v = Number(e.currentTarget.value); if (v >= 30 && v <= 300) setMeta({ bpm: v }); else setBpm(String(s.bpm)); }} />
           </label>
           <select value={s.timeSig.join('/')}
             onChange={e => setMeta({ timeSig: e.currentTarget.value.split('/').map(Number) as [number, number] })}>
@@ -54,7 +59,7 @@ export function Transport() {
         </>
       )}
       <button onClick={copy}>{copied ? 'Copied' : 'Copy link'}</button>
-      <button class={editMode.value ? 'on' : ''} onClick={() => { editMode.value = !editMode.value; }}>
+      <button class={editMode.value ? 'on' : ''} onClick={() => { if (editMode.value) selection.value = new Set(); editMode.value = !editMode.value; }}>
         {editMode.value ? 'Done editing' : 'Edit / remix'}
       </button>
     </div>

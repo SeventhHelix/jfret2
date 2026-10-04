@@ -10,15 +10,16 @@ const DUR_KEYS: Record<string, number> = { '1': 96, '2': 48, '3': 24, '4': 12, '
 export function useKeyboard() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest('input, select, textarea')) return;
+      const t = e.target as HTMLElement;
+      if (t.closest('textarea, select') || (t instanceof HTMLInputElement && !['range', 'checkbox', 'button'].includes(t.type))) return;
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
-      if (e.code === 'Space') { e.preventDefault(); togglePlay(); return; }
+      if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay(); return; }
       if (mod && key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
       if (mod && key === 'y') { e.preventDefault(); redo(); return; }
+      if (e.key === 'Escape') { selection.value = new Set(); return; }
       if (!editMode.value) return;
       if (mod && key === 'a') { e.preventDefault(); selectAll(); return; }
-      if (e.key === 'Escape') { selection.value = new Set(); return; }
       const sel = selection.value;
       if (!sel.size) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -35,7 +36,15 @@ export function useKeyboard() {
         commit(setDuration(song.value, sel, DUR_KEYS[e.key]));
       }
     };
+    // Firefox clicks a focused button on Space keyup; stop that.
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && (e.target as HTMLElement).closest('button')) e.preventDefault();
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+    };
   }, []);
 }
