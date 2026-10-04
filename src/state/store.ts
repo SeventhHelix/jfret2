@@ -199,7 +199,10 @@ export function loadInitial() {
   if (p) {
     try {
       song.value = decodeSong(p);
-      editMode.value = false;
+      // Reloading your own last-saved riff stays in edit mode; someone else's link opens in the player view.
+      let own: string | null = null;
+      try { own = localStorage.getItem(LS_KEY); } catch { /* storage unavailable */ }
+      if (p !== own) editMode.value = false;
     } catch {
       errorMsg.value = "That link couldn't be read, so an empty riff was loaded.";
     }
