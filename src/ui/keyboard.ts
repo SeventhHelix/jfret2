@@ -10,7 +10,7 @@ const DUR_KEYS: Record<string, number> = { '1': 96, '2': 48, '3': 24, '4': 12, '
 export function useKeyboard() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
+      const t = e.target instanceof HTMLElement ? e.target : document.body;
       if (t.closest('textarea, select') || (t instanceof HTMLInputElement && !['range', 'checkbox', 'button'].includes(t.type))) return;
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
