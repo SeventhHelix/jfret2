@@ -46,7 +46,7 @@ type Note = {
 - **Codec (binary → base64url):**
   - Header: version byte, bpm (varint), timeSig (1 byte each), tuning id (1 byte), title (length-prefixed UTF-8, ≤ 60 bytes).
   - Notes, sorted: `varint(start − prevStart)`, `varint(dur)`, `byte(string << 5 | fret)` — ~3 bytes/note.
-  - Optionally deflate via the browser `CompressionStream` when it makes the payload smaller (a flag bit in the version byte).
+  - No compression in v1 (payloads are already ~1–1.5k chars); a future version byte can add it.
 - Stored in the **URL fragment**: `https://<user>.github.io/jfret/#s=<payload>`. Fragments never hit a server.
 - The URL is updated live (`history.replaceState`, debounced) so the address bar is always the current share link. "Copy link" button copies it.
 - Last-edited song is also autosaved to `localStorage`; on load, a URL payload takes precedence over localStorage.
@@ -73,12 +73,12 @@ Shared links open with Edit off (a clean player view) and an "Edit / remix" butt
 
 ## Fretboard display modes
 
-A small segmented control on the fretboard: **Live / Bar / Selection** (auto).
+A small segmented control on the fretboard: **Live | Bar/selection**. In Bar/selection mode the soft set is chosen automatically: selection (if any) > loop region (if on) > current bar. A label shows which one is active.
 
 - **Live:** only the currently sounding note(s) are highlighted.
 - **Bar:** every note in the bar containing the playhead is shown as a *soft* highlight (fret number visible); the currently sounding note is *strongly* highlighted (filled, bigger, slight pulse). As the playhead crosses a bar line, the soft set swaps to the next bar. This mimics watching another player's fretting hand to learn the shape.
-- **Selection:** when notes are selected in the tab-roll (or a loop region is set in the tab view), the soft set is exactly those notes instead of the current bar; the playing note is still double-highlighted. Clearing the selection returns to Bar mode.
-- Default mode is **Bar**. When stopped, Bar mode shows the bar at the playhead/insert cursor.
+- **Selection:** when notes are selected in the tab-roll (or a loop region is on), the soft set is exactly those notes instead of the current bar; the playing note is still double-highlighted. Clearing the selection returns to the bar view.
+- Default mode is **Bar/selection**. When stopped, the "hot" notes are the ones starting exactly at the playhead (entering a note or clicking one moves the playhead there), so you see the note you just placed plus the rest of its bar.
 - Same visual language in edit and play views. Positions with multiple soft notes at the same fret just show one marker.
 
 ## Editing ("noodling") flow
@@ -99,7 +99,7 @@ A small segmented control on the fretboard: **Live / Bar / Selection** (auto).
 **Selection toolbar operations** (apply to selection, or all notes if none selected — except Delete, which requires a selection):
 - **Quantize:** snap starts (and optionally ends) to grid, with a strength slider (0–100%).
 - **Apply feel:** re-time notes using the recorded click gaps, scaled so the average gap equals the current grid value. Follow with Quantize to clean up.
-- **Even out:** equal spacing across the selection's time span at the current grid.
+- **Even out:** place the selected notes one grid step apart, starting at the first selected note (notes sharing a start stay together); each gets a duration of one grid step.
 - **Legato:** extend each note to the start of the next note.
 - **Delete.**
 
