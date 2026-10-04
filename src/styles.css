@@ -196,3 +196,13 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 .opts-pop input { margin-top: 2px; }
 .opts-sub { display: flex; align-items: center; gap: 8px; padding-left: 22px; }
 .opts-sub.off { opacity: 0.4; pointer-events: none; }
+
+/* flow path + hand position overlay (above strings, under the note dots) */
+.fb-flow { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 1; overflow: visible; }
+.flow-seg { fill: none; stroke-width: 3; stroke-linecap: round; transition: opacity 0.15s linear; }
+.flow-seg.current { stroke-width: 4.5; }
+.flow-seg.upcoming { stroke-dasharray: 7 6; animation: flow-dash 0.9s linear infinite; }
+@keyframes flow-dash { to { stroke-dashoffset: -13; } }
+.flow-comet { fill: #fff; filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 12px var(--accent)); }
+.hand-box { fill: #ffffff0a; stroke: #f1ece055; stroke-width: 1.5; stroke-dasharray: 6 5; }
+.hand-label { fill: #f1ece0aa; font-size: 10px; font-weight: 600; }

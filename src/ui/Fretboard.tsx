@@ -31,6 +31,7 @@ type Cell = {
 export function Fretboard() {
   // Close the Display menu on any click outside it.
   const optsRef = useRef<HTMLDetailsElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const close = (e: PointerEvent) => {
       const el = optsRef.current;
@@ -102,6 +103,82 @@ export function Fretboard() {
     }
   }
 
+  // ---- Flow path + hand position (Display options) ----
+  // Source notes: whatever the neck is focused on (bar / selection / loop); in Live mode, the current bar.
+  const barStartT = Math.floor(t / bar) * bar;
+  const flowSrc = src === 'live' ? notesInRange(s.notes, barStartT, barStartT + bar) : s.notes.filter(n => soft.has(n.id));
+  const cx = (f: number) => (f === 0 ? OPEN_W / 2 : midX(f));
+  type Pt = { x: number; y: number; start: number; end: number; hue: number };
+  const pts: Pt[] = [...new Set(flowSrc.map(n => n.start))].sort((a, b) => a - b).map(st => {
+    const grp = flowSrc.filter(n => n.start === st); // a chord flows through its centre
+    return {
+      x: grp.reduce((a, n) => a + cx(n.fret), 0) / grp.length,
+      y: grp.reduce((a, n) => a + n.string * ROW_H + ROW_H / 2, 0) / grp.length,
+      start: st,
+      end: Math.max(...grp.map(n => n.start + n.dur)),
+      hue: hueOf(grp[0]),
+    };
+  });
+  // Separate phrases: break the line at a rest of a beat or more.
+  const phrases: Pt[][] = [];
+  for (const p of pts) {
+    const cur = phrases[phrases.length - 1];
+    const prev = cur?.[cur.length - 1];
+    if (!prev || p.start - prev.end >= beat) phrases.push([p]);
+    else cur.push(p);
+  }
+  type Seg = { d: string; state: 'played' | 'current' | 'upcoming'; ahead: number; hue: number; ctrl: number[] };
+  const segs: Seg[] = [];
+  for (const ph of phrases) {
+    for (let i = 0; i + 1 < ph.length; i++) {
+      const p0 = ph[i - 1] ?? ph[i], p1 = ph[i], p2 = ph[i + 1], p3 = ph[i + 2] ?? ph[i + 1];
+      if (p1.x === p2.x && p1.y === p2.y) continue; // repeated note: nothing to draw
+      // Catmull-Rom through the notes, as cubic Béziers: smooth, passes through every note.
+      const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+      const state = t >= p2.start ? 'played' : t >= p1.start ? 'current' : 'upcoming';
+      segs.push({
+        d: `M${p1.x} ${p1.y} C${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`,
+        state, ahead: 0, hue: p1.hue,
+        ctrl: [p1.x, p1.y, c1x, c1y, c2x, c2y, p2.x, p2.y, p1.start, p2.start],
+      });
+    }
+  }
+  let ahead = 0;
+  for (const sg of segs) if (sg.state === 'upcoming') sg.ahead = ++ahead;
+  // Comet: during playback, a dot rides the curve between the current note and the next.
+  const curSeg = playing.value ? segs.find(sg => sg.state === 'current') : undefined;
+  let comet: { x: number; y: number } | null = null;
+  if (curSeg) {
+    const [x0, y0, x1, y1, x2, y2, x3, y3, s0, s1] = curSeg.ctrl;
+    const u = clamp01((t - s0) / (s1 - s0)), v = 1 - u;
+    comet = {
+      x: v * v * v * x0 + 3 * v * v * u * x1 + 3 * v * u * u * x2 + u * u * u * x3,
+      y: v * v * v * y0 + 3 * v * v * u * y1 + 3 * v * u * u * y2 + u * u * u * y3,
+    };
+  }
+  const segOpacity = (sg: Seg) =>
+    sg.state === 'played' ? 0.18 : sg.state === 'current' ? 0.95 : opts.motion ? Math.max(0.22, 0.75 - 0.12 * (sg.ahead - 1)) : 0.6;
+  // Hand position: the fretted span of the focused notes (open strings need no fretting), at least 4 frets wide.
+  const fretted = flowSrc.filter(n => n.fret > 0);
+  const hand = fretted.length ? (() => {
+    const lo = Math.min(...fretted.map(n => n.fret)), hi = Math.max(Math.max(...fretted.map(n => n.fret)), lo + 3);
+    const sLo = Math.min(...fretted.map(n => n.string)), sHi = Math.max(...fretted.map(n => n.string));
+    return { x: cellX(lo) + 3, y: sLo * ROW_H + 4, w: cellX(hi) + FRET_W - cellX(lo) - 6, h: (sHi - sLo + 1) * ROW_H - 8, lo, hi };
+  })() : null;
+
+  // Follow the music: keep the focused notes' frets in view (the neck is wider than most screens).
+  const focusLo = flowSrc.length ? Math.min(...flowSrc.map(n => n.fret)) : -1;
+  const focusHi = flowSrc.length ? Math.max(...flowSrc.map(n => n.fret)) : -1;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || focusLo < 0) return;
+    const left = cellX(focusLo) - 8, right = cellX(focusHi) + cellW(focusHi) + 8;
+    if (left >= el.scrollLeft && right <= el.scrollLeft + el.clientWidth) return; // already visible
+    const target = right - left > el.clientWidth ? left : (left + right) / 2 - el.clientWidth / 2;
+    el.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  }, [focusLo, focusHi]);
+
   const barNo = Math.floor(t / bar) + 1;
   const label = { bar: `Bar ${barNo}`, selection: 'Selection', loop: 'Loop', live: 'Live' }[src];
   const cBar = Math.floor(cursor.value / bar) + 1;
@@ -158,6 +235,10 @@ export function Fretboard() {
               <span><b>Next-note ring</b> dashed outline on the note that comes next</span></label>
             <label><input type="checkbox" checked={opts.motion} onChange={() => toggleView('motion')} />
               <span><b>Motion</b> upcoming notes grow in, far-off and played notes fade</span></label>
+            <label><input type="checkbox" checked={opts.flow} onChange={() => toggleView('flow')} />
+              <span><b>Flow path</b> a curve through the notes in playing order, with a dot riding it during playback</span></label>
+            <label><input type="checkbox" checked={opts.hand} onChange={() => toggleView('hand')} />
+              <span><b>Hand position</b> a box around the frets the bar uses</span></label>
             <label><input type="checkbox" checked={opts.colour} onChange={() => toggleView('colour')} />
               <span><b>Colour by position</b> same colours on the neck and the timeline</span></label>
             <div class={`opts-sub${opts.colour ? '' : ' off'}`}>
@@ -220,7 +301,7 @@ export function Fretboard() {
         <div class="fb-names">
           {TUNINGS[s.tuning].pitches.map((p, i) => <div key={i} style={{ height: ROW_H }}>{noteName(p)}</div>)}
         </div>
-        <div class="fb-scroll">
+        <div class="fb-scroll" ref={scrollRef}>
           <div class="fb" style={{ width, height: ROW_H * STRINGS }}>
             <div class="fb-nut" style={{ left: OPEN_W - 6 }} />
             {Array.from({ length: MAX_FRET }, (_, i) => (
@@ -234,6 +315,21 @@ export function Fretboard() {
             {Array.from({ length: STRINGS }, (_, i) => (
               <div key={i} class="fb-string" style={{ top: i * ROW_H + ROW_H / 2, height: 1 + i * 0.5 }} />
             ))}
+            {(opts.flow || opts.hand) && (
+              <svg class="fb-flow" width={width} height={ROW_H * STRINGS} aria-hidden="true">
+                {opts.hand && hand && (
+                  <g>
+                    <rect class="hand-box" x={hand.x} y={hand.y} width={hand.w} height={hand.h} rx={12} />
+                    <text class="hand-label" x={hand.x + 8} y={hand.y + 13}>frets {hand.lo}–{hand.hi}</text>
+                  </g>
+                )}
+                {opts.flow && segs.map((sg, i) => (
+                  <path key={i} d={sg.d} class={`flow-seg ${sg.state}`}
+                    style={{ stroke: opts.colour ? `hsl(${sg.hue} 75% 70%)` : '#f1ece0', opacity: segOpacity(sg) }} />
+                ))}
+                {opts.flow && comet && <circle class="flow-comet" cx={comet.x} cy={comet.y} r={6} />}
+              </svg>
+            )}
             {Array.from({ length: STRINGS }, (_, str) =>
               Array.from({ length: MAX_FRET + 1 }, (_, f) => {
                 const c = cells.get(`${str}:${f}`);
