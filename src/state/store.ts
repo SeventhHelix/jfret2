@@ -26,6 +26,19 @@ export const metronome = signal(false);
 export const countIn = signal(false);
 export const errorMsg = signal<string | null>(null);
 
+// Fretboard view options (a per-viewer preference, kept in localStorage, not in the share link).
+export type ViewOpts = { lookAhead: boolean; motion: boolean; order: boolean; colour: boolean };
+const VIEW_KEY = 'jfret:view';
+function loadView(): ViewOpts {
+  const defaults: ViewOpts = { lookAhead: true, motion: true, order: true, colour: true };
+  try { return { ...defaults, ...JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') }; } catch { return defaults; }
+}
+export const view = signal<ViewOpts>(loadView());
+effect(() => { try { localStorage.setItem(VIEW_KEY, JSON.stringify(view.value)); } catch { /* ignore */ } });
+export function toggleView(k: keyof ViewOpts) {
+  view.value = { ...view.value, [k]: !view.value[k] };
+}
+
 // note id -> ms since previous fretboard click (session only, used by "Apply feel")
 export const feel = new Map<number, number>();
 let lastClick = 0;
@@ -69,6 +82,23 @@ export function selectAll() {
   selection.value = new Set(song.value.notes.map(n => n.id));
 }
 
+/**
+ * Backspace with nothing selected: remove the note just before the insert cursor (normally the one
+ * you just entered) and move the cursor back to where it was, like backspacing a typo.
+ */
+export function deleteBeforeCursor() {
+  const before = song.value.notes.filter(n => n.start < cursor.value);
+  if (!before.length) return;
+  const at = Math.max(...before.map(n => n.start));
+  const victim = before.filter(n => n.start === at).sort((a, b) => b.id - a.id)[0]; // newest note of a chord first
+  commit(deleteNotes(song.value, new Set([victim.id])));
+  if (!song.value.notes.some(n => n.start === at)) {
+    cursor.value = at;
+    lastInsertStart = null;
+    if (!playing.value) playhead.value = at;
+  }
+}
+
 export function deleteSelection() {
   if (!selection.value.size) return;
   commit(deleteNotes(song.value, selection.value));
@@ -109,11 +139,40 @@ export function rewind() {
   seek(loopOn.value && loop.value ? loop.value.start : 0);
 }
 
+function setLoop(start: number, end: number) {
+  loop.value = { start, end };
+  loopOn.value = true;
+  if (playing.value && (playhead.value < start || playhead.value >= end)) seek(start); // jump into the new loop
+}
+
 export function setLoopFromSelection() {
   const sel = song.value.notes.filter(n => selection.value.has(n.id));
   if (!sel.length) return;
-  loop.value = { start: Math.min(...sel.map(n => n.start)), end: Math.max(...sel.map(n => n.start + n.dur)) };
-  loopOn.value = true;
+  setLoop(Math.min(...sel.map(n => n.start)), Math.max(...sel.map(n => n.start + n.dur)));
+}
+
+/**
+ * The Loop button never does nothing:
+ * - with notes selected → loop exactly those (pressing again on the same range turns it off);
+ * - else with an existing loop → toggle it;
+ * - else → loop the bar under the playhead.
+ */
+export function toggleLoop() {
+  const sel = song.value.notes.filter(n => selection.value.has(n.id));
+  if (sel.length) {
+    const start = Math.min(...sel.map(n => n.start)), end = Math.max(...sel.map(n => n.start + n.dur));
+    if (loopOn.value && loop.value?.start === start && loop.value.end === end) loopOn.value = false;
+    else setLoop(start, end);
+    return;
+  }
+  if (loop.value) {
+    if (loopOn.value) loopOn.value = false;
+    else setLoop(loop.value.start, loop.value.end);
+    return;
+  }
+  const bar = barTicks(song.value.timeSig);
+  const b = Math.floor(playhead.value / bar) * bar;
+  setLoop(b, b + bar);
 }
 
 // ---- fretboard entry ----

@@ -120,3 +120,29 @@ kbd { display: inline-block; min-width: 18px; padding: 0 5px; border: 1px solid 
 .seg button { padding: 4px 10px; }
 .title-input { width: 150px; }
 @media (max-width: 1100px) { .speed > .muted { display: none; } }
+
+/* fretboard: position colour, look-ahead ghosts, motion, order badges */
+.fb-dot { transition: transform 0.12s linear, opacity 0.12s linear, background-color 0.12s; }
+.fb-cell.soft.tint .fb-dot { background: hsl(var(--h) 65% 58%); color: #0e0c14; }
+.fb-cell.ghost .fb-dot { opacity: 0.3; background: transparent; color: #e8ecf3; border: 2px solid var(--soft); }
+.fb-cell.ghost.tint .fb-dot { border-color: hsl(var(--h) 70% 65%); background: hsl(var(--h) 60% 50% / 0.25); }
+.fb-ord { position: absolute; top: 3px; right: 8px; min-width: 15px; padding: 0 3px; border-radius: 8px; background: #0d0f13dd; color: #e8ecf3; font: 700 10px/15px ui-monospace, monospace; text-align: center; pointer-events: none; z-index: 3; }
+.chips { display: inline-flex; gap: 4px; }
+.chip { font-size: 12px; padding: 2px 9px; border-radius: 999px; color: var(--muted); background: transparent; }
+.chip.on { background: #5b7cfa26; border-color: var(--soft); color: #dfe6ff; }
+.seg.small button { font-size: 12px; padding: 3px 9px; }
+button.mini { font-size: 12px; padding: 2px 9px; }
+
+/* timeline: bar sections + position colour + mini neck marker */
+.roll-bars { position: relative; height: 20px; }
+.roll-bar { position: absolute; top: 0; height: 18px; padding: 0 0 0 5px; border: none; border-left: 1px solid var(--line-strong); border-radius: 0; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; text-align: left; }
+.roll-bar:hover { color: var(--text); background: #ffffff08; }
+.roll-bar.cur { color: var(--accent); }
+.roll-names-head { height: 20px; }
+.roll-note.tint { background: hsl(var(--h) 45% 26%); border-color: hsl(var(--h) 70% 62%); }
+.roll-note .rn-fret { position: relative; z-index: 1; }
+.roll-note::before { content: ''; position: absolute; left: 3px; right: 3px; bottom: 2px; height: 2px; border-radius: 1px; background: #ffffff1f; }
+.rn-pos { position: absolute; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: #fff; pointer-events: none; }
+.roll-note.sel .rn-pos, .roll-note.hot .rn-pos { background: #111; }
+.roll-note.tint.sel { background: var(--soft); border-color: #fff; }
+.roll-note.tint.hot { background: var(--accent); border-color: var(--accent); }

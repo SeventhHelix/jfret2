@@ -1,7 +1,9 @@
+import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { STRINGS, Song, TUNINGS, barTicks, beatTicks, noteName, songEndTick } from '../model/song';
+import { MAX_FRET, STRINGS, Song, TUNINGS, barTicks, beatTicks, noteName, songEndTick } from '../model/song';
 import { moveNotes, resizeNotes } from '../model/ops';
-import { commitFrom, cursor, grid, hotIds, loop, loopOn, placeCursor, playhead, playing, selection, song } from '../state/store';
+import { commitFrom, cursor, grid, hotIds, loop, loopOn, placeCursor, playhead, playing, selection, song, view } from '../state/store';
+import { fretHue } from './colors';
 
 const PX = 4;    // pixels per tick (quarter note = 96 px)
 const LANE = 30; // px per string lane
@@ -110,26 +112,44 @@ export function TabRoll() {
     `repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px ${bar * PX}px)`,
     `repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px ${beat * PX}px)`,
     `repeating-linear-gradient(90deg, #ffffff0d 0 1px, transparent 1px ${grid.value * PX}px)`,
+    // alternate bar shading so bar sections read at a glance
+    `repeating-linear-gradient(90deg, #ffffff07 0 ${bar * PX}px, transparent ${bar * PX}px ${2 * bar * PX}px)`,
   ].join(', ');
   const lp = loopOn.value ? loop.value : null;
   const hot = hotIds.value;
+  const tint = view.value.colour;
+  const curBar = Math.floor(playhead.value / bar);
 
   return (
     <div class="panel">
       <div class="roll-wrap">
         <div class="roll-names">
+          <div class="roll-names-head" />
           {TUNINGS[s.tuning].pitches.map((p, i) => <div key={i} style={{ height: LANE }}>{noteName(p)}</div>)}
         </div>
         <div class="roll-scroll" ref={scrollRef}>
+          <div class="roll-bars" style={{ width }}>
+            {Array.from({ length: bars }, (_, b) => (
+              <button key={b} class={`roll-bar${b === curBar ? ' cur' : ''}`} style={{ left: b * bar * PX, width: bar * PX }}
+                onClick={() => placeCursor(b * bar)} title={`Bar ${b + 1}: click to move the insert cursor here`}>
+                {b + 1}
+              </button>
+            ))}
+          </div>
           <div class="roll" style={{ width, height: LANE * STRINGS, backgroundImage: gridBg }}
             onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
             {Array.from({ length: STRINGS }, (_, i) => <div key={i} class="roll-lane" style={{ top: i * LANE + LANE / 2 }} />)}
             {lp && <div class="roll-loop" style={{ left: lp.start * PX, width: (lp.end - lp.start) * PX }} />}
             {s.notes.map(n => (
               <div key={n.id} data-id={n.id}
-                class={`roll-note${sel.has(n.id) ? ' sel' : ''}${playing.value && hot.has(n.id) ? ' hot' : ''}`}
-                style={{ left: n.start * PX, top: n.string * LANE + 3, width: Math.max(6, n.dur * PX - 1), height: LANE - 6 }}>
-                {n.fret}
+                class={`roll-note${tint ? ' tint' : ''}${sel.has(n.id) ? ' sel' : ''}${playing.value && hot.has(n.id) ? ' hot' : ''}`}
+                style={{
+                  left: n.start * PX, top: n.string * LANE + 3, width: Math.max(6, n.dur * PX - 1), height: LANE - 6,
+                  '--h': fretHue(n.fret),
+                } as JSX.CSSProperties}>
+                <span class="rn-fret">{n.fret}</span>
+                {/* mini neck: where on the neck (0-24) this fret sits, so the shape reads without decoding numbers */}
+                <i class="rn-pos" style={{ left: `${(n.fret / MAX_FRET) * 100}%` }} />
               </div>
             ))}
             <div class="roll-cursor" style={{ left: cursor.value * PX }} />

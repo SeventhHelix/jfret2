@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { Song, TUNINGS, TUNING_IDS, TuningId } from '../model/song';
 import {
-  commit, countIn, editMode, loop, loopOn, metronome, newSong, playing, redo, rewind, selection, setLoopFromSelection,
+  commit, countIn, editMode, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
   shareUrl, song, speed, togglePlay, undo,
 } from '../state/store';
 
@@ -18,10 +18,6 @@ export function Transport() {
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
-  const toggleLoop = () => {
-    if (!loop.value) setLoopFromSelection();
-    else loopOn.value = !loopOn.value;
-  };
 
   const setEdit = (on: boolean) => {
     if (!on) selection.value = new Set();
@@ -37,7 +33,7 @@ export function Transport() {
         <div class="group">
           <button onClick={rewind} title="Back to start" aria-label="Back to start">⏮</button>
           <button class="play" onClick={togglePlay} title="Play / pause (Space)">{playing.value ? '⏸ Pause' : '▶ Play'}</button>
-          <button class={loopOn.value ? 'on' : ''} onClick={toggleLoop} title="Drag across the tab, or select notes, to set a loop">⟳ Loop</button>
+          <button class={loopOn.value ? 'on' : ''} onClick={toggleLoop} title="Loop the selected notes, or the current bar. Drag across the tab to loop any range.">⟳ Loop</button>
         </div>
         <label class="speed" title="Playback speed (doesn't change the saved tempo)">
           <span class="muted">Speed</span>

@@ -1,7 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { moveNotes, setDuration } from '../model/ops';
 import {
-  commit, deleteSelection, editMode, grid, redo, selectAll, selection, song, togglePlay, undo,
+  commit, deleteBeforeCursor, deleteSelection, editMode, grid, redo, selectAll, selection, song, toggleLoop, togglePlay, undo,
 } from '../state/store';
 
 // 1=whole 2=half 3=quarter 4=8th 5=16th 6=32nd
@@ -17,11 +17,15 @@ export function useKeyboard() {
       if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay(); return; }
       if (mod && key === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
       if (mod && key === 'y') { e.preventDefault(); redo(); return; }
+      if (!mod && key === 'l') { e.preventDefault(); toggleLoop(); return; }
       if (e.key === 'Escape') { selection.value = new Set(); return; }
       if (!editMode.value) return;
       if (mod && key === 'a') { e.preventDefault(); selectAll(); return; }
       const sel = selection.value;
-      if (!sel.size) return;
+      if (!sel.size) {
+        if (e.key === 'Backspace') { e.preventDefault(); deleteBeforeCursor(); }
+        return;
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         deleteSelection();

@@ -27,7 +27,8 @@ export function App() {
             <span><kbd>Space</kbd> play</span>
             <span><kbd>1</kbd>–<kbd>6</kbd> note length</span>
             <span><kbd>←</kbd><kbd>→</kbd> nudge, <kbd>↑</kbd><kbd>↓</kbd> change string</span>
-            <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</span>
+            <span><kbd>Backspace</kbd> remove the note you just entered</span>
+            <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</span>
           </p>
         </>
       )}
