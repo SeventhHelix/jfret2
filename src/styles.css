@@ -53,3 +53,21 @@ button.play { min-width: 92px; font-weight: 600; }
 .roll-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; }
 .roll-loop { position: absolute; top: 0; bottom: 0; background: #ffb0201c; pointer-events: none; }
 .roll-marquee { position: absolute; border: 1px dashed var(--sel); background: #7dd3fc22; pointer-events: none; }
+
+.tv { padding: 6px; }
+.tv svg { display: block; cursor: pointer; user-select: none; touch-action: none; }
+.tv-staff { stroke: var(--line-strong); stroke-width: 1; }
+.tv-bar { stroke: var(--muted); stroke-width: 1; }
+.tv-tab { fill: var(--muted); font-size: 12px; font-weight: 700; text-anchor: middle; }
+.tv-label { fill: var(--muted); font-size: 10px; }
+.tv-fret { fill: var(--text); font-size: 12px; font-weight: 600; text-anchor: middle; dominant-baseline: central; paint-order: stroke; stroke: var(--panel); stroke-width: 5px; stroke-linejoin: round; }
+.tv-fret.sel { fill: var(--sel); }
+.tv-fret.hot { fill: var(--accent); font-size: 14px; }
+.tv-stem { stroke: var(--text); stroke-width: 1.2; }
+.tv-beam { stroke: var(--text); stroke-width: 3; }
+.tv-dot { fill: var(--text); }
+.tv-rest { fill: var(--text); font-family: 'Segoe UI Symbol', 'Noto Music', serif; font-size: 18px; text-anchor: middle; }
+.tv-restbar { fill: var(--text); }
+.tv-loop { fill: #ffb02022; }
+.tv-loop.preview { fill: #7dd3fc22; }
+.tv-playhead { stroke: var(--accent); stroke-width: 2; }
