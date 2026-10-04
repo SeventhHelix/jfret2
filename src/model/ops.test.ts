@@ -144,3 +144,46 @@ describe('shiftFrom', () => {
     expect(shiftFrom(s, 12, 12)).toBe(s);
   });
 });
+
+describe('one note per string', () => {
+  it('quantize never stacks two notes on the same string', () => {
+    const q = quantize(mk([note(1, 4, 0, 5), note(4, 4, 0, 7)]), ids(1, 2), 12, 1, false);
+    expect(q.notes.map(n => [n.fret, n.start])).toEqual([[5, 0], [7, 12]]);
+  });
+
+  it('quantize steps around an unselected note on the same string', () => {
+    const q = quantize(mk([note(0, 12, 0, 5), note(3, 6, 0, 7)]), ids(2), 12, 1, false);
+    expect(q.notes.map(n => [n.fret, n.start])).toEqual([[5, 0], [7, 12]]);
+  });
+
+  it('quantize keeps chords on different strings together', () => {
+    const q = quantize(mk([note(1, 12, 0, 5), note(2, 12, 1, 5)]), ids(1, 2), 12, 1, false);
+    expect(q.notes.map(n => n.start)).toEqual([0, 0]);
+  });
+
+  it('a note moved onto another on the same string replaces it', () => {
+    const m = moveNotes(mk([note(0, 12, 0, 5), note(12, 12, 0, 7)]), ids(2), -12, 0);
+    expect(m.notes.map(n => n.fret)).toEqual([7]);
+  });
+
+  it('resizing over the next note on the string is capped at that note', () => {
+    const r = resizeNotes(mk([note(0, 12, 0, 5), note(24, 12, 0, 7)]), ids(1), 48);
+    expect(durs(r)).toEqual([24, 12]);
+  });
+
+  it('adding a note inside a ringing note on the same string cuts the first one short', () => {
+    const { song } = addNote(mk([note(0, 48, 0, 5)]), note(24, 12, 0, 7));
+    expect(durs(song)).toEqual([24, 12]);
+  });
+
+  it('even out and legato never produce same-string stacks', () => {
+    const s = mk([note(0, 6, 0, 5), note(5, 6, 0, 7), note(9, 6, 1, 3)]);
+    for (const out of [evenOut(s, ids(1, 2, 3), 12), legato(s, ids(1, 2, 3))]) {
+      const keys = out.notes.map(n => `${n.string}:${n.start}`);
+      expect(new Set(keys).size).toBe(keys.length);
+      for (const a of out.notes) for (const b of out.notes) {
+        if (a !== b && a.string === b.string && a.start < b.start) expect(a.start + a.dur).toBeLessThanOrEqual(b.start);
+      }
+    }
+  });
+});

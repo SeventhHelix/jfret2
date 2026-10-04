@@ -1,4 +1,4 @@
-import { MAX_FRET, MAX_TICKS, STRINGS, Song, TUNING_IDS, newId, sortNotes, Note } from '../model/song';
+import { MAX_FRET, MAX_TICKS, STRINGS, Song, TUNING_IDS, newId, normalizeNotes, sortNotes, Note } from '../model/song';
 
 const VERSION = 1;
 const MAX_TITLE_BYTES = 60;
@@ -109,5 +109,5 @@ export function decodeSong(payload: string): Song {
     if (dur < 1 || start + dur > MAX_TICKS || string >= STRINGS || fret > MAX_FRET) throw new Error('bad note');
     notes.push({ id: newId(), start, dur, string, fret });
   }
-  return { v: 1, title, bpm, timeSig: [num, den], tuning, notes: sortNotes(notes) };
+  return { v: 1, title, bpm, timeSig: [num, den], tuning, notes: normalizeNotes(notes) }; // also repairs links saved before the one-note-per-string rule
 }

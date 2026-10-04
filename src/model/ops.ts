@@ -1,4 +1,4 @@
-import { MAX_FRET, MAX_TICKS, Note, STRINGS, Song, newId, openPitch, sortNotes } from './song';
+import { MAX_FRET, MAX_TICKS, Note, STRINGS, Song, newId, normalizeNotes, openPitch, sortNotes } from './song';
 
 export type NewNote = Omit<Note, 'id'>;
 
@@ -8,13 +8,15 @@ const clampNote = (n: Note): Note => {
   return start === n.start && dur === n.dur ? n : { ...n, start, dur };
 };
 
-const withNotes = (song: Song, notes: Note[]): Song => ({ ...song, notes: sortNotes(notes.map(clampNote)) });
+// Every op funnels through here, so the one-note-per-string rule always holds. `prefer`: the notes being operated on win ties.
+const withNotes = (song: Song, notes: Note[], prefer?: Set<number>): Song =>
+  ({ ...song, notes: normalizeNotes(notes.map(clampNote), prefer) });
 
 const clampDur = (n: Note, dur: number) => Math.min(Math.max(1, Math.round(dur)), MAX_TICKS - n.start);
 
 export function addNote(song: Song, n: NewNote): { song: Song; id: number } {
   const id = newId();
-  return { song: withNotes(song, [...song.notes, { ...n, id }]), id };
+  return { song: withNotes(song, [...song.notes, { ...n, id }], new Set([id])), id };
 }
 
 export function deleteNotes(song: Song, ids: Set<number>): Song {
@@ -37,7 +39,7 @@ export function moveNotes(song: Song, ids: Set<number>, dTicks: number, dString:
       if (f >= 0 && f <= MAX_FRET) fret = f;
     }
     return { ...n, start: n.start + dt, string, fret };
-  }));
+  }), ids); // a moved note replaces whatever it lands on, on its string
 }
 
 export function resizeNotes(song: Song, ids: Set<number>, dTicks: number): Song {
@@ -50,17 +52,23 @@ export function setDuration(song: Song, ids: Set<number>, dur: number): Song {
 
 export function quantize(song: Song, ids: Set<number>, grid: number, strength: number, ends: boolean): Song {
   const snap = (t: number) => Math.round(t + (Math.round(t / grid) * grid - t) * strength);
-  return withNotes(song, song.notes.map(n => {
-    if (!ids.has(n.id)) return n;
-    const start = snap(n.start);
+  // Slots already used on each string. Two notes on one string that snap to the same slot would
+  // stack (impossible on a guitar), so the later one steps forward to the next free grid slot.
+  const taken = new Set(song.notes.filter(n => !ids.has(n.id)).map(n => `${n.string}:${n.start}`));
+  const moved = new Map<number, Note>();
+  for (const n of sortNotes(song.notes.filter(n => ids.has(n.id)))) {
+    let start = snap(n.start);
+    while (taken.has(`${n.string}:${start}`)) start += grid;
+    taken.add(`${n.string}:${start}`);
     let dur = n.dur;
     if (ends) {
       let end = snap(n.start + n.dur);
       if (end <= start) end = start + grid;
       dur = end - start;
     }
-    return { ...n, start, dur };
-  }));
+    moved.set(n.id, { ...n, start, dur });
+  }
+  return withNotes(song, song.notes.map(n => moved.get(n.id) ?? n), ids);
 }
 
 // gaps: note id -> ms since the previous fretboard click (recorded at entry time).
@@ -92,7 +100,7 @@ export function applyFeel(song: Song, ids: Set<number>, gaps: Map<number, number
     const next = nextOnset.get(n.start);
     const dur = next !== undefined ? Math.max(1, newStart.get(next)! - start) : n.dur;
     return { ...n, start, dur };
-  }));
+  }), ids);
 }
 
 export function evenOut(song: Song, ids: Set<number>, grid: number): Song {
@@ -102,7 +110,7 @@ export function evenOut(song: Song, ids: Set<number>, grid: number): Song {
   const index = new Map(uniq.map((s, i) => [s, i] as const));
   const base = uniq[0];
   return withNotes(song, song.notes.map(n =>
-    ids.has(n.id) ? { ...n, start: base + index.get(n.start)! * grid, dur: grid } : n));
+    ids.has(n.id) ? { ...n, start: base + index.get(n.start)! * grid, dur: grid } : n), ids);
 }
 
 export function legato(song: Song, ids: Set<number>): Song {

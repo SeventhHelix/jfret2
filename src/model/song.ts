@@ -52,6 +52,35 @@ export function sortNotes(notes: Note[]): Note[] {
   return [...notes].sort((a, b) => a.start - b.start || a.string - b.string);
 }
 
+/**
+ * Enforce "a string sounds one note at a time":
+ * - two notes on the same string with the same start → keep one (a `prefer` id wins, else the newest);
+ * - a note still ringing when the next note on its string starts is cut short at that start.
+ * Notes on different strings (chords, overlaps) are untouched. Returns notes sorted like sortNotes.
+ */
+export function normalizeNotes(notes: Note[], prefer?: Set<number>): Note[] {
+  const rank = (n: Note) => (prefer?.has(n.id) ? 1 : 0);
+  const byString = new Map<number, Note[]>();
+  for (const n of notes) {
+    const list = byString.get(n.string);
+    if (list) list.push(n);
+    else byString.set(n.string, [n]);
+  }
+  const out: Note[] = [];
+  for (const list of byString.values()) {
+    list.sort((a, b) => a.start - b.start || rank(b) - rank(a) || b.id - a.id);
+    const kept: Note[] = [];
+    for (const n of list) {
+      const prev = kept[kept.length - 1];
+      if (prev && prev.start === n.start) continue;
+      if (prev && prev.start + prev.dur > n.start) kept[kept.length - 1] = { ...prev, dur: n.start - prev.start };
+      kept.push(n);
+    }
+    out.push(...kept);
+  }
+  return sortNotes(out);
+}
+
 export function barTicks(ts: [number, number]): number {
   return (ts[0] * PPQ * 4) / ts[1];
 }
