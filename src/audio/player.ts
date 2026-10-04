@@ -66,14 +66,18 @@ export class Player {
   }
 
   pause() {
-    if (this.timer !== undefined) clearInterval(this.timer);
-    if (this.raf !== undefined) cancelAnimationFrame(this.raf);
-    this.timer = undefined;
-    this.raf = undefined;
+    this.stopTimers();
     for (const s of this.sources) {
       try { s.stop(); } catch { /* already stopped */ }
     }
     this.sources = [];
+  }
+
+  private stopTimers() {
+    if (this.timer !== undefined) clearInterval(this.timer);
+    if (this.raf !== undefined) cancelAnimationFrame(this.raf);
+    this.timer = undefined;
+    this.raf = undefined;
   }
 
   private secPerTick(): number {
@@ -111,7 +115,8 @@ export class Player {
     while (this.timeline.length && this.timeline[0].time <= now) latest = this.timeline.shift()!.tick;
     if (latest !== null) this.onTick(latest);
     if (this.endAt !== null && now >= this.endAt) {
-      this.pause();
+      this.stopTimers(); // let the last notes ring out through their scheduled fades
+      this.sources = [];
       this.onTick(Math.max(0, songEndTick(this.song) - 1));
       this.onEnd();
     }

@@ -73,6 +73,7 @@ export function deleteSelection() {
   if (!selection.value.size) return;
   commit(deleteNotes(song.value, selection.value));
   selection.value = new Set();
+  cursor.value = Math.min(cursor.value, songEndTick(song.value));
 }
 
 // ---- player ----
@@ -202,7 +203,7 @@ export function loadInitial() {
       // Reloading your own last-saved riff stays in edit mode; someone else's link opens in the player view.
       let own: string | null = null;
       try { own = localStorage.getItem(LS_KEY); } catch { /* storage unavailable */ }
-      if (p !== own) editMode.value = false;
+      if (p !== own && song.value.notes.length) editMode.value = false;
     } catch {
       errorMsg.value = "That link couldn't be read, so an empty riff was loaded.";
     }

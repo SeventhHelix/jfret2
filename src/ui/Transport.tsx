@@ -47,10 +47,10 @@ export function Transport() {
               onChange={e => { const v = Number(e.currentTarget.value); if (v >= 30 && v <= 300) setMeta({ bpm: v }); else setBpm(String(s.bpm)); }} />
           </label>
           <select value={s.timeSig.join('/')}
-            onChange={e => setMeta({ timeSig: e.currentTarget.value.split('/').map(Number) as [number, number] })}>
+            onChange={e => { setMeta({ timeSig: e.currentTarget.value.split('/').map(Number) as [number, number] }); e.currentTarget.blur(); }}>
             {['4/4', '3/4', '6/8'].map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          <select value={s.tuning} onChange={e => setMeta({ tuning: e.currentTarget.value as TuningId })}>
+          <select value={s.tuning} onChange={e => { setMeta({ tuning: e.currentTarget.value as TuningId }); e.currentTarget.blur(); }}>
             {TUNING_IDS.map(id => <option key={id} value={id}>{TUNINGS[id].name}</option>)}
           </select>
           <button onClick={undo} title="Undo (Ctrl+Z)">↶</button>

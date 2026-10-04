@@ -22,7 +22,7 @@ export function Toolbar() {
       <span class="muted" style={{ minWidth: 150 }}>{count ? `${count} selected` : 'No selection: tools apply to all'}</span>
       <label class="muted">
         Grid{' '}
-        <select value={grid.value} onChange={e => { grid.value = Number(e.currentTarget.value); }}>
+        <select value={grid.value} onChange={e => { grid.value = Number(e.currentTarget.value); e.currentTarget.blur(); }}>
           {GRIDS.map(g => <option key={g.t} value={g.t}>{g.label}</option>)}
         </select>
       </label>
