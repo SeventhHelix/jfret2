@@ -49,7 +49,7 @@ export function Fretboard() {
   const hot = hotIds.value;
   const soft = softIds.value;
   // While editing with playback stopped, the cursor ring is the useful cue; the "next" ring is for playing along.
-  const next = playing.value || !edit ? nextIds.value : new Set<number>();
+  const next = opts.nextRing && (playing.value || !edit) ? nextIds.value : new Set<number>();
   const atCursor = edit && !playing.value ? cursorIds.value : new Set<number>();
   const src = softSource.value;
   const g = guide.value;
@@ -147,13 +147,15 @@ export function Fretboard() {
         {edit && <button class="mini" onClick={undo} title="Undo (Ctrl+Z). Backspace removes the note you just entered.">↶ Undo</button>}
         <span class="spacer" />
         <span class="legend muted">
-          <i class="lg hot" /> playing <i class="lg next" /> next
+          <i class="lg hot" /> playing{opts.nextRing && <> <i class="lg next" /> next</>}
         </span>
         <details class="opts" ref={optsRef}>
           <summary title="Display options (saved in this browser)">⚙ Display</summary>
           <div class="opts-pop">
             <label><input type="checkbox" checked={opts.lookAhead} onChange={() => toggleView('lookAhead')} />
               <span><b>Look-ahead</b> fade in the next bar's notes as the bar runs out</span></label>
+            <label><input type="checkbox" checked={opts.nextRing} onChange={() => toggleView('nextRing')} />
+              <span><b>Next-note ring</b> dashed outline on the note that comes next</span></label>
             <label><input type="checkbox" checked={opts.motion} onChange={() => toggleView('motion')} />
               <span><b>Motion</b> upcoming notes grow in, far-off and played notes fade</span></label>
             <label><input type="checkbox" checked={opts.colour} onChange={() => toggleView('colour')} />
