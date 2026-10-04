@@ -18,9 +18,15 @@ export function App() {
         <>
           <Toolbar />
           <TabRoll />
-          <p class="muted">
-            Click frets to sketch notes · Drag blocks to move, drag the right edge to resize · Click empty roll space to move the
-            insert cursor · Drag across the tab to loop · Space play · 1–6 set length · Ctrl+Z undo
+          <p class="hints">
+            <span>Click frets to sketch</span>
+            <span>Drag a block to move it; drag its right edge to resize</span>
+            <span>Click empty space to move the <b class="c-cursor">green insert cursor</b></span>
+            <span>Drag across the tab to loop</span>
+            <span><kbd>Space</kbd> play</span>
+            <span><kbd>1</kbd>–<kbd>6</kbd> note length</span>
+            <span><kbd>←</kbd><kbd>→</kbd> nudge, <kbd>↑</kbd><kbd>↓</kbd> change string</span>
+            <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</span>
           </p>
         </>
       )}

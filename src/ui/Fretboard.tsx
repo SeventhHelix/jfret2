@@ -69,7 +69,8 @@ export function Fretboard() {
           </div>
           <div class="fb-nums" style={{ width }}>
             {Array.from({ length: MAX_FRET + 1 }, (_, f) => (
-              <span key={f} style={{ left: f === 0 ? OPEN_W / 2 : midX(f) }}>{f}</span>
+              <span key={f} class={SINGLE_DOTS.includes(f) || DOUBLE_DOTS.includes(f) ? 'mk' : ''}
+                style={{ left: f === 0 ? OPEN_W / 2 : midX(f) }}>{f}</span>
             ))}
           </div>
         </div>

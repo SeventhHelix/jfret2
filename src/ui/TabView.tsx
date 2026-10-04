@@ -2,7 +2,7 @@ import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { barTicks, beatTicks, songEndTick } from '../model/song';
 import { DisplayEvent, RhythmValue, layoutBar } from '../notation/rhythm';
-import { grid, hotIds, loop, loopOn, playhead, playing, seek, selection, song } from '../state/store';
+import { editMode, grid, hotIds, loop, loopOn, playhead, playing, seek, selection, song } from '../state/store';
 
 const LEFT = 36;      // room for the "TAB" label
 const PAD = 12;       // inner padding per bar
@@ -175,6 +175,13 @@ export function TabView() {
 
   return (
     <div class="panel tv" ref={ref}>
+      {!s.notes.length ? (
+        <div class="tv-empty">
+          {editMode.value
+            ? 'Click any fret on the neck below to start sketching. Each click adds an 8th note; fix the rhythm afterwards.'
+            : 'This riff is empty. Switch to Edit to start one.'}
+        </div>
+      ) : (
       <svg width={w} height={height} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
         {lp && shade(lp.start, lp.end, 'tv-loop')}
         {dragLoop && shade(Math.min(dragLoop.a, dragLoop.b), Math.max(dragLoop.a, dragLoop.b), 'tv-loop preview')}
@@ -183,6 +190,7 @@ export function TabView() {
           <line class="tv-playhead" x1={xAt(playhead.value)} x2={xAt(playhead.value)} y1={rowTop(hb) - 8} y2={rowTop(hb) + STAFF_H + 8} />
         )}
       </svg>
+      )}
     </div>
   );
 }

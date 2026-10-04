@@ -19,7 +19,9 @@ export function Toolbar() {
 
   return (
     <div class="panel row">
-      <span class="muted" style={{ minWidth: 150 }}>{count ? `${count} selected` : 'No selection: tools apply to all'}</span>
+      <span class={count ? 'sel-count' : 'muted'} style={{ minWidth: 170 }}>
+        {count ? `${count} note${count === 1 ? '' : 's'} selected` : 'Nothing selected: tools affect all notes'}
+      </span>
       <label class="muted">
         Grid{' '}
         <select value={grid.value} onChange={e => { grid.value = Number(e.currentTarget.value); e.currentTarget.blur(); }}>
@@ -27,7 +29,8 @@ export function Toolbar() {
         </select>
       </label>
       <button onClick={() => apply((s, ids) => quantize(s, ids, grid.value, strength / 100, ends))}>Quantize</button>
-      <label class="muted">
+      <label class="muted" title="How far notes move toward the grid">
+        Strength{' '}
         <input type="range" min={0} max={100} step={5} value={strength} onInput={e => setStrength(Number(e.currentTarget.value))} />{' '}
         {strength}%
       </label>
@@ -36,7 +39,8 @@ export function Toolbar() {
       <button onClick={() => apply((s, ids) => evenOut(s, ids, grid.value))}>Even out</button>
       <button onClick={() => apply(legato)}>Legato</button>
       <button onClick={setLoopFromSelection}>Loop selection</button>
-      <button onClick={deleteSelection}>Delete</button>
+      <span class="spacer" />
+      <button class="danger" onClick={deleteSelection} title="Delete selected notes (Del)">Delete</button>
     </div>
   );
 }

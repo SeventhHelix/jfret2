@@ -22,21 +22,21 @@ button.on { background: var(--soft); border-color: var(--soft); color: #fff; }
 button.play { min-width: 92px; font-weight: 600; }
 
 .fb-wrap { display: flex; gap: 6px; }
-.fb-names { width: 20px; color: var(--muted); font-size: 13px; }
+.fb-names { width: 22px; color: #c9cfda; font-size: 14px; font-weight: 600; }
 .fb-names div { display: flex; align-items: center; }
 .fb-scroll { overflow-x: auto; flex: 1; }
 .fb { position: relative; background: #2b2019; border-radius: 6px; user-select: none; touch-action: manipulation; }
 .fb-nut { position: absolute; top: 0; bottom: 0; width: 6px; background: #e8e2d0; }
 .fb-wire { position: absolute; top: 0; bottom: 0; width: 2px; background: #9a9aa6; }
-.fb-marker { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #d8cfc0; opacity: 0.35; transform: translate(-50%, -50%); }
+.fb-marker { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #d8cfc0; opacity: 0.5; transform: translate(-50%, -50%); }
 .fb-string { position: absolute; left: 0; right: 0; background: #cfc6b4; pointer-events: none; }
 .fb-cell { position: absolute; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2; }
 .fb-dot { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; opacity: 0; transition: transform 0.08s, opacity 0.08s; }
-.fb-cell:hover .fb-dot { opacity: 0.5; background: #ffffff33; }
+.fb-cell:hover .fb-dot { opacity: 1; background: #f1ece0e6; color: #1b1712; transform: scale(0.85); }
 .fb-cell.soft .fb-dot { opacity: 1; background: var(--soft); color: #fff; }
 .fb-cell.hot .fb-dot { opacity: 1; background: var(--accent); color: #1a1200; transform: scale(1.25); box-shadow: 0 0 0 4px #ffb02055, 0 0 18px var(--accent); }
 .fb-cell:active .fb-dot { transform: scale(0.9); }
-.fb-nums { position: relative; height: 18px; color: var(--muted); font-size: 12px; }
+.fb-nums { position: relative; height: 22px; margin-top: 4px; color: #8f98a8; font-size: 13px; user-select: none; }
 .fb-nums span { position: absolute; transform: translateX(-50%); }
 
 .roll-wrap { display: flex; gap: 6px; }
@@ -71,3 +71,29 @@ button.play { min-width: 92px; font-weight: 600; }
 .tv-loop { fill: #ffb02022; }
 .tv-loop.preview { fill: #7dd3fc22; }
 .tv-playhead { stroke: var(--accent); stroke-width: 2; }
+.fb-nums span.mk { color: #f1ece0; font-weight: 700; }
+
+/* header */
+.header { display: flex; flex-direction: column; gap: 8px; }
+.header .sub { padding-top: 8px; border-top: 1px solid var(--line); }
+.group { display: inline-flex; gap: 4px; }
+.speed { display: inline-flex; align-items: center; gap: 6px; }
+.speed input[type=range] { width: 120px; }
+.speed-val { min-width: 56px; padding: 4px 6px; font-variant-numeric: tabular-nums; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: none; border-radius: 0; padding: 5px 14px; }
+.seg button:not(.on) { background: transparent; color: var(--muted); }
+.seg button:not(.on):hover { color: var(--text); }
+button.danger:hover { border-color: var(--danger); color: var(--danger); }
+.sel-count { color: var(--sel); font-size: 13px; font-weight: 600; }
+
+/* tab empty state */
+.tv { position: relative; }
+.tv-empty { display: flex; min-height: 148px; /* = one staff row, so adding the first note does not shift the page */ align-items: center; justify-content: center; text-align: center; padding: 0 24px; color: #c9cfda; font-size: 15px; pointer-events: none; }
+
+/* hints */
+.hints { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13px; margin: 0; padding: 0 4px; }
+.hints b { font-weight: 600; }
+.c-cursor { color: var(--cursor); }
+kbd { display: inline-block; min-width: 18px; padding: 0 5px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; background: var(--panel2); color: var(--text); font: 600 11px/16px ui-monospace, monospace; text-align: center; }
+.fb-scroll, .roll-scroll { scrollbar-color: var(--line-strong) transparent; scrollbar-width: thin; }
