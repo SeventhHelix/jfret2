@@ -16,3 +16,7 @@ button.on { background: var(--soft); border-color: var(--soft); color: #fff; }
 .spacer { flex: 1; }
 .muted { color: var(--muted); font-size: 13px; }
 .error { background: #3b1d1d; border: 1px solid var(--danger); color: #fecaca; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+
+.title-input { font-size: 18px; font-weight: 600; background: transparent; border-color: transparent; width: 240px; }
+.title-input:hover, .title-input:focus { border-color: var(--line); }
+button.play { min-width: 92px; font-weight: 600; }
