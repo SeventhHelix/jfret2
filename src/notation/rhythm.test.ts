@@ -51,3 +51,22 @@ describe('layoutBar', () => {
     expect(events.map(e => e.start)).toEqual([96]);
   });
 });
+
+describe('layoutBar rests', () => {
+  it('does not add a phantom rest after a note whose length is not a standard value', () => {
+    const { rests } = layoutBar([n(1, 0, 30), n(2, 30, 66)], 0, 96, 24);
+    expect(rests).toEqual([]);
+  });
+
+  it('splits a trailing gap into aligned plain rests', () => {
+    const { rests } = layoutBar([n(1, 0, 12)], 0, 96, 24);
+    expect(rests.map(r => [r.start, r.value.ticks])).toEqual([[12, 12], [24, 24], [48, 48]]);
+  });
+
+  it('shows an empty 3/4 bar as one whole rest', () => {
+    const { rests } = layoutBar([], 0, 72, 24);
+    expect(rests).toHaveLength(1);
+    expect(rests[0].start).toBe(0);
+    expect(rests[0].value.ticks).toBe(96);
+  });
+});

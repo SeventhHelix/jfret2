@@ -33,6 +33,23 @@ export type Rest = { start: number; value: RhythmValue };
 
 const MIN_REST = 6; // only show rests of a 16th or longer
 
+const REST_SIZES = [96, 48, 24, 12, 6, 3];
+
+// Split a gap into plain (undotted, non-triplet) rests, each aligned to its own length within the bar.
+function restsFor(start: number, len: number, barStart: number, _beatLen: number): Rest[] {
+  const out: Rest[] = [];
+  let t = start;
+  let left = len;
+  while (left >= MIN_REST) {
+    const v = REST_SIZES.find(s => s <= left && (t - barStart) % s === 0);
+    if (v === undefined || v < MIN_REST) break;
+    out.push({ start: t, value: displayValue(v) });
+    t += v;
+    left -= v;
+  }
+  return out;
+}
+
 export function layoutBar(notes: Note[], barStart: number, barLen: number, beatLen: number): { events: DisplayEvent[]; rests: Rest[] } {
   const barEnd = barStart + barLen;
   const inBar = notes.filter(n => n.start >= barStart && n.start < barEnd);
@@ -41,15 +58,16 @@ export function layoutBar(notes: Note[], barStart: number, barLen: number, beatL
   const rests: Rest[] = [];
   let cursor = barStart;
   starts.forEach((s, i) => {
-    if (s - cursor >= MIN_REST) rests.push({ start: cursor, value: displayValue(s - cursor) });
+    rests.push(...restsFor(cursor, s - cursor, barStart, beatLen));
     const group = inBar.filter(n => n.start === s);
     const next = starts[i + 1] ?? barEnd;
     const len = Math.min(Math.max(...group.map(n => n.dur)), next - s);
     const value = displayValue(len);
     events.push({ start: s, noteIds: group.map(n => n.id), value, beam: null });
-    cursor = s + Math.min(value.ticks, next - s);
+    cursor = s + len;
   });
-  if (barEnd - cursor >= MIN_REST) rests.push({ start: cursor, value: displayValue(barEnd - cursor) });
+  if (!events.length) rests.push({ start: barStart, value: displayValue(96) });
+  else rests.push(...restsFor(cursor, barEnd - cursor, barStart, beatLen));
 
   let beamId = 0;
   const beatOf = (t: number) => Math.floor((t - barStart) / beatLen);

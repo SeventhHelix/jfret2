@@ -86,3 +86,30 @@ describe('ops', () => {
     expect(durs(l)).toEqual([12, 18, 3]);
   });
 });
+
+import { MAX_TICKS } from './song';
+
+describe('ops hardening', () => {
+  it('setDuration clamps to at least 1 tick, rounds, and respects MAX_TICKS', () => {
+    expect(durs(setDuration(mk([note(0)]), ids(1), 0))).toEqual([1]);
+    expect(durs(setDuration(mk([note(0)]), ids(1), 2.6))).toEqual([3]);
+    expect(durs(setDuration(mk([note(100)]), ids(1), 1e9))).toEqual([MAX_TICKS - 100]);
+  });
+
+  it('resizeNotes respects MAX_TICKS', () => {
+    expect(durs(resizeNotes(mk([note(100, 12)]), ids(1), 1e9))).toEqual([MAX_TICKS - 100]);
+  });
+
+  it('moveNotes does not push a note end past MAX_TICKS', () => {
+    const m = moveNotes(mk([note(0, 12)]), ids(1), 1e9, 0);
+    expect(m.notes[0].start + m.notes[0].dur).toBe(MAX_TICKS);
+  });
+
+  it('applyFeel keeps chords together using the lowest-id gap', () => {
+    const s = mk([note(0, 12, 0), note(12, 12, 0), note(12, 12, 1), note(24, 12, 0)]);
+    const gaps = new Map([[2, 500], [3, 999], [4, 250]]);
+    const f = applyFeel(s, ids(1, 2, 3, 4), gaps, 12);
+    expect(starts(f)).toEqual([0, 16, 16, 24]);
+    expect(durs(f)).toEqual([16, 8, 8, 12]);
+  });
+});

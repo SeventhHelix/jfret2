@@ -1,6 +1,7 @@
 export const PPQ = 24; // ticks per quarter note
 export const MAX_FRET = 24;
 export const STRINGS = 6;
+export const MAX_TICKS = 999 * 96 * 4;
 
 export type TuningId = 'std' | 'dropD' | 'halfDown' | 'dadgad' | 'openG';
 

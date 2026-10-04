@@ -1,4 +1,4 @@
-import { MAX_FRET, STRINGS, Song, TUNING_IDS, newId, sortNotes, Note } from '../model/song';
+import { MAX_FRET, MAX_TICKS, STRINGS, Song, TUNING_IDS, newId, sortNotes, Note } from '../model/song';
 
 const VERSION = 1;
 const MAX_TITLE_BYTES = 60;
@@ -94,7 +94,9 @@ export function decodeSong(payload: string): Song {
   if (num < 1 || num > 16 || ![2, 4, 8, 16].includes(den)) throw new Error('bad time signature');
   const tuning = TUNING_IDS[r.byte()];
   if (!tuning) throw new Error('bad tuning');
-  const title = dec.decode(r.bytes(r.varint()));
+  const titleLen = r.varint();
+  if (titleLen > MAX_TITLE_BYTES) throw new Error('bad title');
+  const title = dec.decode(r.bytes(titleLen));
   const count = r.varint();
   const notes: Note[] = [];
   let start = 0;
@@ -104,8 +106,8 @@ export function decodeSong(payload: string): Song {
     const sf = r.byte();
     const string = sf >> 5;
     const fret = sf & 0x1f;
-    if (dur < 1 || string >= STRINGS || fret > MAX_FRET) throw new Error('bad note');
+    if (dur < 1 || start + dur > MAX_TICKS || string >= STRINGS || fret > MAX_FRET) throw new Error('bad note');
     notes.push({ id: newId(), start, dur, string, fret });
   }
-  return { v: 1, title, bpm, timeSig: [num, den], tuning, notes };
+  return { v: 1, title, bpm, timeSig: [num, den], tuning, notes: sortNotes(notes) };
 }

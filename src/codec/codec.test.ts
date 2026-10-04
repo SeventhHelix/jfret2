@@ -62,3 +62,31 @@ describe('codec', () => {
     expect(() => decodeSong(toBase64Url(b))).toThrow(/version/);
   });
 });
+
+const varint = (n: number): number[] => {
+  const o: number[] = [];
+  while (n >= 0x80) { o.push((n % 0x80) | 0x80); n = Math.floor(n / 0x80); }
+  o.push(n);
+  return o;
+};
+const header = (titleLen: number, count: number, extra: number[] = []) =>
+  [1, 100, 4, 4, 0, ...varint(titleLen), ...extra, ...varint(count)];
+
+describe('codec hardening', () => {
+  it('rejects notes that end beyond MAX_TICKS', () => {
+    const bytes = [...header(0, 1), 0, ...varint(10_000_000), 0];
+    expect(() => decodeSong(toBase64Url(Uint8Array.from(bytes)))).toThrow(/bad note/);
+  });
+
+  it('rejects titles longer than 60 bytes', () => {
+    const bytes = header(61, 0, new Array(61).fill(65));
+    expect(() => decodeSong(toBase64Url(Uint8Array.from(bytes)))).toThrow();
+  });
+
+  it('returns notes sorted even if the payload has string order within an onset reversed', () => {
+    // two notes at the same onset, string 3 then string 1
+    const bytes = [...header(0, 2), 0, 12, 3 << 5, 0, 12, 1 << 5];
+    const d = decodeSong(toBase64Url(Uint8Array.from(bytes)));
+    expect(d.notes.map(n => n.string)).toEqual([1, 3]);
+  });
+});
