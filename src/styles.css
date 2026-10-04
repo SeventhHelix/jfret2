@@ -38,3 +38,18 @@ button.play { min-width: 92px; font-weight: 600; }
 .fb-cell:active .fb-dot { transform: scale(0.9); }
 .fb-nums { position: relative; height: 18px; color: var(--muted); font-size: 12px; }
 .fb-nums span { position: absolute; transform: translateX(-50%); }
+
+.roll-wrap { display: flex; gap: 6px; }
+.roll-names { width: 20px; color: var(--muted); font-size: 13px; }
+.roll-names div { display: flex; align-items: center; }
+.roll-scroll { overflow-x: auto; flex: 1; }
+.roll { position: relative; background-color: var(--panel2); border-radius: 6px; touch-action: none; user-select: none; cursor: crosshair; }
+.roll-lane { position: absolute; left: 0; right: 0; height: 1px; background: var(--line); pointer-events: none; }
+.roll-note { position: absolute; background: #2f3b66; border: 1px solid var(--soft); border-radius: 4px; font-size: 12px; font-weight: 600; padding-left: 4px; display: flex; align-items: center; cursor: grab; overflow: hidden; }
+.roll-note::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.roll-note.sel { background: var(--soft); color: #fff; border-color: #fff; }
+.roll-note.hot { background: var(--accent); color: #1a1200; }
+.roll-cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cursor); pointer-events: none; }
+.roll-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; }
+.roll-loop { position: absolute; top: 0; bottom: 0; background: #ffb0201c; pointer-events: none; }
+.roll-marquee { position: absolute; border: 1px dashed var(--sel); background: #7dd3fc22; pointer-events: none; }

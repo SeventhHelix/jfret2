@@ -1,7 +1,8 @@
 import { Transport } from './Transport';
 import { Fretboard } from './Fretboard';
+import { TabRoll } from './TabRoll';
 import { useKeyboard } from './keyboard';
-import { errorMsg } from '../state/store';
+import { editMode, errorMsg } from '../state/store';
 
 export function App() {
   useKeyboard();
@@ -10,6 +11,7 @@ export function App() {
       {errorMsg.value && <div class="error" onClick={() => { errorMsg.value = null; }}>{errorMsg.value} (click to dismiss)</div>}
       <Transport />
       <Fretboard />
+      {editMode.value && <TabRoll />}
     </div>
   );
 }
