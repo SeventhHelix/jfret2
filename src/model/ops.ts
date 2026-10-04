@@ -2,7 +2,13 @@ import { MAX_FRET, MAX_TICKS, Note, STRINGS, Song, newId, openPitch, sortNotes }
 
 export type NewNote = Omit<Note, 'id'>;
 
-const withNotes = (song: Song, notes: Note[]): Song => ({ ...song, notes: sortNotes(notes) });
+const clampNote = (n: Note): Note => {
+  const start = Math.min(Math.max(0, n.start), MAX_TICKS - 1);
+  const dur = Math.min(Math.max(1, n.dur), MAX_TICKS - start);
+  return start === n.start && dur === n.dur ? n : { ...n, start, dur };
+};
+
+const withNotes = (song: Song, notes: Note[]): Song => ({ ...song, notes: sortNotes(notes.map(clampNote)) });
 
 const clampDur = (n: Note, dur: number) => Math.min(Math.max(1, Math.round(dur)), MAX_TICKS - n.start);
 
@@ -20,7 +26,7 @@ export function moveNotes(song: Song, ids: Set<number>, dTicks: number, dString:
   if (!sel.length) return song;
   const minStart = Math.min(...sel.map(n => n.start));
   const maxEnd = Math.max(...sel.map(n => n.start + n.dur));
-  const dt = Math.min(Math.max(dTicks, -minStart), MAX_TICKS - maxEnd);
+  const dt = Math.max(Math.min(dTicks, MAX_TICKS - maxEnd), -minStart);
   const ds = sel.every(n => n.string + dString >= 0 && n.string + dString < STRINGS) ? dString : 0;
   return withNotes(song, song.notes.map(n => {
     if (!ids.has(n.id)) return n;

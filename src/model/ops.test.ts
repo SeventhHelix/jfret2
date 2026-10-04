@@ -113,3 +113,22 @@ describe('ops hardening', () => {
     expect(durs(f)).toEqual([16, 8, 8, 12]);
   });
 });
+
+describe('central clamp', () => {
+  it('applyFeel with a huge gap keeps every note end within MAX_TICKS', () => {
+    const s = mk([note(0), note(12), note(24), note(36)]);
+    const gaps = new Map([[2, 1e9], [3, 1], [4, 1]]);
+    const f = applyFeel(s, ids(1, 2, 3, 4), gaps, 12);
+    for (const x of f.notes) expect(x.start + x.dur).toBeLessThanOrEqual(MAX_TICKS);
+  });
+
+  it('withNotes clamps out-of-range notes from any op', () => {
+    const { song } = addNote(mk([]), { start: MAX_TICKS + 500, dur: 1e9, string: 0, fret: 0 });
+    expect(song.notes[0].start).toBe(MAX_TICKS - 1);
+    expect(song.notes[0].start + song.notes[0].dur).toBeLessThanOrEqual(MAX_TICKS);
+  });
+
+  it('moveNotes with dTicks = 0 leaves starts unchanged', () => {
+    expect(starts(moveNotes(mk([note(5), note(30)]), ids(1, 2), 0, 0))).toEqual([5, 30]);
+  });
+});

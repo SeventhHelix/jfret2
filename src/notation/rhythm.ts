@@ -36,13 +36,19 @@ const MIN_REST = 6; // only show rests of a 16th or longer
 const REST_SIZES = [96, 48, 24, 12, 6, 3];
 
 // Split a gap into plain (undotted, non-triplet) rests, each aligned to its own length within the bar.
-function restsFor(start: number, len: number, barStart: number, _beatLen: number): Rest[] {
+// Unaligned leading slack (shorter than any shown rest) is skipped.
+function restsFor(start: number, len: number, barStart: number): Rest[] {
   const out: Rest[] = [];
   let t = start;
   let left = len;
   while (left >= MIN_REST) {
-    const v = REST_SIZES.find(s => s <= left && (t - barStart) % s === 0);
-    if (v === undefined || v < MIN_REST) break;
+    const v = REST_SIZES.find(s => s >= MIN_REST && s <= left && (t - barStart) % s === 0);
+    if (v === undefined) {
+      const adv = MIN_REST - ((t - barStart) % MIN_REST);
+      t += adv;
+      left -= adv;
+      continue;
+    }
     out.push({ start: t, value: displayValue(v) });
     t += v;
     left -= v;
@@ -58,7 +64,7 @@ export function layoutBar(notes: Note[], barStart: number, barLen: number, beatL
   const rests: Rest[] = [];
   let cursor = barStart;
   starts.forEach((s, i) => {
-    rests.push(...restsFor(cursor, s - cursor, barStart, beatLen));
+    rests.push(...restsFor(cursor, s - cursor, barStart));
     const group = inBar.filter(n => n.start === s);
     const next = starts[i + 1] ?? barEnd;
     const len = Math.min(Math.max(...group.map(n => n.dur)), next - s);
@@ -67,7 +73,7 @@ export function layoutBar(notes: Note[], barStart: number, barLen: number, beatL
     cursor = s + len;
   });
   if (!events.length) rests.push({ start: barStart, value: displayValue(96) });
-  else rests.push(...restsFor(cursor, barEnd - cursor, barStart, beatLen));
+  else rests.push(...restsFor(cursor, barEnd - cursor, barStart));
 
   let beamId = 0;
   const beatOf = (t: number) => Math.floor((t - barStart) / beatLen);

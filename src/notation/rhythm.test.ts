@@ -70,3 +70,17 @@ describe('layoutBar rests', () => {
     expect(rests[0].value.ticks).toBe(96);
   });
 });
+
+describe('restsFor after unaligned gaps', () => {
+  it('covers the rest of the bar after a dotted 16th', () => {
+    const { rests } = layoutBar([n(1, 0, 9)], 0, 96, 24);
+    expect(rests.map(r => [r.start, r.value.ticks])).toEqual([[12, 12], [24, 24], [48, 48]]);
+  });
+
+  it.each([13, 8])('covers the rest of the bar after a note of dur %i', dur => {
+    const { rests } = layoutBar([n(1, 0, dur)], 0, 96, 24);
+    expect(rests.length).toBeGreaterThan(0);
+    const last = rests[rests.length - 1];
+    expect([last.start, last.value.ticks]).toEqual([48, 48]);
+  });
+});
