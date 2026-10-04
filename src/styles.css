@@ -152,3 +152,18 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 .toolbar > .row + .row { padding-top: 8px; border-top: 1px solid var(--line); }
 .seg.lengths button { min-width: 46px; font-variant-numeric: tabular-nums; }
 .dot-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* scale guide */
+.guide-row { margin-bottom: 8px; }
+.scale-notes { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.sn { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); }
+.sn small { margin-left: 4px; color: var(--muted); font-weight: 500; }
+.sn.root { border-color: #f1ece0; }
+.fb-cell.scale .fb-dot { opacity: 1; transform: scale(0.72); background: #f1ece014; border: 1.5px solid #f1ece055; color: #cfd5df; font-size: 12px; }
+.fb-cell.scale.root .fb-dot { background: #f1ece02e; border: 2px solid #f1ece0; color: #fff; }
+.fb-cell.root:not(.scale) .fb-dot { box-shadow: 0 0 0 2px #f1ece0; }
+.fb-cell.scale:hover .fb-dot { transform: scale(0.9); background: #f1ece0e6; color: #1b1712; }
+.fb-cell.out .fb-dot { outline: 2px solid var(--danger); outline-offset: 2px; }
+.fb-cell.out::after { content: '✕'; position: absolute; top: 2px; left: 8px; color: var(--danger); font: 700 10px/1 sans-serif; pointer-events: none; z-index: 3; }
+.roll-note.out { box-shadow: inset 0 0 0 1px var(--danger); }
+.roll-note.out::after { background: linear-gradient(225deg, var(--danger) 0 6px, transparent 6px); width: 10px; }

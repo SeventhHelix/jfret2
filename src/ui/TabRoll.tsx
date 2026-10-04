@@ -1,15 +1,19 @@
 import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { MAX_FRET, STRINGS, Song, TUNINGS, barTicks, beatTicks, noteName, songEndTick } from '../model/song';
+import { MAX_FRET, STRINGS, Song, TUNINGS, barTicks, beatTicks, noteName, pitchOf, songEndTick } from '../model/song';
 import { moveNotes, resizeNotes } from '../model/ops';
-import { commitFrom, cursor, grid, hotIds, loop, loopOn, placeCursor, playhead, playing, selection, song, view } from '../state/store';
+import {
+  commitFrom, cursor, grid, guide, guideScale, hotIds, loop, loopOn, nudgeFrets, placeCursor, playhead, playing, previewNote, selectBar,
+  selection, song, view,
+} from '../state/store';
+import { pc } from '../model/theory';
 import { fretHue } from './colors';
 
 const PX = 4;    // pixels per tick (quarter note = 96 px)
 const LANE = 30; // px per string lane
 
 type Drag =
-  | { kind: 'move' | 'resize'; x0: number; y0: number; orig: Song; ids: Set<number>; noteStart: number }
+  | { kind: 'move' | 'resize'; x0: number; y0: number; orig: Song; ids: Set<number>; noteStart: number; noteId: number }
   | { kind: 'marquee'; x0: number; y0: number; x1: number; y1: number; additive: boolean };
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -19,6 +23,7 @@ export function TabRoll() {
   const sel = selection.value;
   const scrollRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  const wheelAcc = useRef(0);
   const [marquee, setMarquee] = useState<Rect | null>(null);
 
   const bar = barTicks(s.timeSig);
@@ -63,7 +68,7 @@ export function TabRoll() {
     }
     const resize = (() => { const r = blk.getBoundingClientRect(); return e.clientX > r.right - Math.min(8, r.width / 3); })();
     const noteStart = song.value.notes.find(n => n.id === id)?.start ?? 0;
-    drag.current = { kind: resize ? 'resize' : 'move', x0: p.x, y0: p.y, orig: song.value, ids, noteStart };
+    drag.current = { kind: resize ? 'resize' : 'move', x0: p.x, y0: p.y, orig: song.value, ids, noteStart, noteId: id };
   };
 
   const onMove = (e: PointerEvent) => {
@@ -89,7 +94,11 @@ export function TabRoll() {
     drag.current = null;
     if (!d) return;
     if (d.kind !== 'marquee') {
-      if (song.value === d.orig) placeCursor(d.noteStart); // plain click on a note: insert in front of it next
+      if (song.value === d.orig) { // plain click on a note: insert in front of it next, and hear it
+        placeCursor(d.noteStart);
+        const n = song.value.notes.find(x => x.id === d.noteId);
+        if (n && !playing.value) previewNote(n.string, n.fret);
+      }
       else commitFrom(d.orig);
       return;
     }
@@ -118,6 +127,16 @@ export function TabRoll() {
   const lp = loopOn.value ? loop.value : null;
   const hot = hotIds.value;
   const tint = view.value.colour;
+  const scale = guide.value.on && guide.value.scale !== 'song' ? guideScale.value : null;
+  // Wheel over a note: fine-tune its pitch a semitone along its string (the whole selection if it's selected).
+  const onWheel = (e: WheelEvent, id: number) => {
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // horizontal scroll intent
+    e.preventDefault();
+    wheelAcc.current += e.deltaY;
+    if (Math.abs(wheelAcc.current) < 80) return; // ~one fret per mouse-wheel notch, smooth on trackpads
+    nudgeFrets(wheelAcc.current < 0 ? 1 : -1, sel.has(id) ? sel : new Set([id]));
+    wheelAcc.current = 0;
+  };
   const curBar = Math.floor(playhead.value / bar);
 
   return (
@@ -131,7 +150,7 @@ export function TabRoll() {
           <div class="roll-bars" style={{ width }}>
             {Array.from({ length: bars }, (_, b) => (
               <button key={b} class={`roll-bar${b === curBar ? ' cur' : ''}`} style={{ left: b * bar * PX, width: bar * PX }}
-                onClick={() => placeCursor(b * bar)} title={`Bar ${b + 1}: click to move the insert cursor here`}>
+                onClick={() => selectBar(b)} title={`Bar ${b + 1}: click to select it (then L to loop, Ctrl+D to duplicate)`}>
                 {b + 1}
               </button>
             ))}
@@ -142,7 +161,10 @@ export function TabRoll() {
             {lp && <div class="roll-loop" style={{ left: lp.start * PX, width: (lp.end - lp.start) * PX }} />}
             {s.notes.map(n => (
               <div key={n.id} data-id={n.id}
-                class={`roll-note${tint ? ' tint' : ''}${sel.has(n.id) ? ' sel' : ''}${playing.value && hot.has(n.id) ? ' hot' : ''}`}
+                class={`roll-note${tint ? ' tint' : ''}${sel.has(n.id) ? ' sel' : ''}${playing.value && hot.has(n.id) ? ' hot' : ''}` +
+                  `${scale && !scale.has(pc(pitchOf(s, n))) ? ' out' : ''}`}
+                onWheel={e => onWheel(e, n.id)}
+                title={scale && !scale.has(pc(pitchOf(s, n))) ? 'Outside the chosen scale' : undefined}
                 style={{
                   left: n.start * PX, top: n.string * LANE + 3, width: Math.max(6, n.dur * PX - 1), height: LANE - 6,
                   '--h': fretHue(n.fret),

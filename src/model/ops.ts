@@ -127,3 +127,42 @@ export function shiftFrom(song: Song, from: number, dTicks: number): Song {
   if (!song.notes.some(n => n.start >= from)) return song;
   return withNotes(song, song.notes.map(n => (n.start >= from ? { ...n, start: n.start + dTicks } : n)));
 }
+
+// ---- clipboard / sequencer helpers ----
+
+/** Notes as a clip: timing relative to the earliest selected note, ready to paste anywhere. */
+export function copyNotes(song: Song, ids: Set<number>): NewNote[] {
+  const sel = song.notes.filter(n => ids.has(n.id));
+  if (!sel.length) return [];
+  const t0 = Math.min(...sel.map(n => n.start));
+  return sel.map(({ id: _id, ...n }) => ({ ...n, start: n.start - t0 }));
+}
+
+/** Paste a clip with its first note at `at`. Pasted notes replace anything on their string at the same time. */
+export function pasteNotes(song: Song, clip: NewNote[], at: number): { song: Song; ids: Set<number> } {
+  const added = clip.map(c => ({ ...c, start: c.start + at, id: newId() }));
+  const ids = new Set(added.map(n => n.id));
+  return { song: withNotes(song, [...song.notes, ...added], ids), ids };
+}
+
+/**
+ * Copy the selection right after itself. A selection that starts on a bar line and fills most of a bar
+ * jumps a whole number of bars (so a looped bar duplicates into the next bar); shorter phrases follow
+ * on at the next beat.
+ */
+export function duplicateNotes(song: Song, ids: Set<number>, barLen: number, beatLen: number): { song: Song; ids: Set<number> } {
+  const sel = song.notes.filter(n => ids.has(n.id));
+  if (!sel.length) return { song, ids: new Set() };
+  const start = Math.min(...sel.map(n => n.start));
+  const span = Math.max(...sel.map(n => n.start + n.dur)) - start;
+  const barish = start % barLen === 0 && span > barLen / 2;
+  const unit = barish ? barLen : beatLen;
+  const offset = Math.max(unit, Math.ceil(span / unit) * unit);
+  return pasteNotes(song, copyNotes(song, ids), start + offset);
+}
+
+/** Nudge pitch by semitones on the same string (fine-tuning a phrase while it loops). */
+export function shiftFrets(song: Song, ids: Set<number>, d: number): Song {
+  return withNotes(song, song.notes.map(n =>
+    ids.has(n.id) ? { ...n, fret: Math.min(MAX_FRET, Math.max(0, n.fret + d)) } : n), ids);
+}

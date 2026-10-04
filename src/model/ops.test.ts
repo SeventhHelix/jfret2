@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Note, Song, emptySong } from './song';
 import {
   addNote, deleteNotes, moveNotes, resizeNotes, setDuration, quantize, applyFeel, evenOut, legato, shiftFrom,
+  copyNotes, pasteNotes, duplicateNotes, shiftFrets,
 } from './ops';
 
 const mk = (notes: Omit<Note, 'id'>[]): Song => ({ ...emptySong(), notes: notes.map((x, i) => ({ ...x, id: i + 1 })) });
@@ -185,5 +186,41 @@ describe('one note per string', () => {
         if (a !== b && a.string === b.string && a.start < b.start) expect(a.start + a.dur).toBeLessThanOrEqual(b.start);
       }
     }
+  });
+});
+
+describe('clipboard and fine-tuning', () => {
+  it('copies notes relative to the earliest one and pastes them at a tick, returning the new ids', () => {
+    const s = mk([note(24, 12, 0, 5), note(36, 12, 1, 7)]);
+    const clip = copyNotes(s, ids(1, 2));
+    expect(clip.map(c => [c.start, c.string, c.fret])).toEqual([[0, 0, 5], [12, 1, 7]]);
+    const { song, ids: pasted } = pasteNotes(s, clip, 96);
+    expect(song.notes.map(n => n.start)).toEqual([24, 36, 96, 108]);
+    expect(pasted.size).toBe(2);
+    expect(song.notes.filter(n => pasted.has(n.id)).map(n => n.start)).toEqual([96, 108]);
+  });
+
+  it('pasted notes win over notes already on their strings at the same time', () => {
+    const s = mk([note(0, 12, 0, 3)]);
+    const { song } = pasteNotes(s, [{ start: 0, dur: 12, string: 0, fret: 9 }], 0);
+    expect(song.notes.map(n => n.fret)).toEqual([9]);
+  });
+
+  it('duplicate lands a full bar later when the selection fills a bar', () => {
+    const s = mk([note(0), note(24), note(48), note(72)]);
+    const { song, ids: dup } = duplicateNotes(s, ids(1, 2, 3, 4), 96, 24);
+    expect(song.notes.filter(n => dup.has(n.id)).map(n => n.start)).toEqual([96, 120, 144, 168]);
+  });
+
+  it('duplicate of a short phrase lands right after it, rounded up to the beat', () => {
+    const s = mk([note(0, 6), note(6, 6), note(12, 6)]); // 18 ticks of 16ths
+    const { song, ids: dup } = duplicateNotes(s, ids(1, 2, 3), 96, 24);
+    expect(song.notes.filter(n => dup.has(n.id)).map(n => n.start)).toEqual([24, 30, 36]);
+  });
+
+  it('shiftFrets moves pitch a semitone on the same string, clamped to the neck', () => {
+    const s = mk([note(0, 12, 0, 5), note(12, 12, 1, 0)]);
+    expect(shiftFrets(s, ids(1, 2), 1).notes.map(n => n.fret)).toEqual([6, 1]);
+    expect(shiftFrets(s, ids(1, 2), -1).notes.map(n => n.fret)).toEqual([4, 0]);
   });
 });

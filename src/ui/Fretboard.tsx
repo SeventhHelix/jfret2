@@ -1,10 +1,12 @@
 import type { JSX } from 'preact';
 import { MAX_FRET, Note, STRINGS, TUNINGS, barTicks, beatTicks, noteName, notesInRange, pitchOf } from '../model/song';
 import {
-  cursor, cursorIds, editMode, fretMode, hotIds, insertNote, nextIds, playhead, playing, previewNote, softIds, softSource,
+  cursor, cursorIds, editMode, fretMode, guide, guideRoot, guideScale, hotIds, insertNote, nextIds, playhead, playing, previewNote,
+  setGuide, softIds, softSource,
   song, toggleView, undo, view,
 } from '../state/store';
 import { fretHue } from './colors';
+import { PITCH_NAMES, SCALE_NAMES, ScaleId, guessRoot, intervalName, pc } from '../model/theory';
 
 const ROW_H = 52;
 const OPEN_W = 52;
@@ -38,6 +40,10 @@ export function Fretboard() {
   const next = playing.value || !edit ? nextIds.value : new Set<number>();
   const atCursor = edit && !playing.value ? cursorIds.value : new Set<number>();
   const src = softSource.value;
+  const g = guide.value;
+  const root = guideRoot.value;
+  const scale = g.on ? guideScale.value : null;
+  const strictScale = !!scale && g.scale !== 'song'; // only a chosen scale can make a riff note "wrong"
 
   const cells = new Map<string, Cell>();
   const cellAt = (n: Note) => {
@@ -138,6 +144,42 @@ export function Fretboard() {
           <button class={fretMode.value === 'bar' ? 'on' : ''} onClick={() => { fretMode.value = 'bar'; }}>Bar / selection</button>
         </span>
       </div>
+      <div class="row guide-row">
+        <button class={`chip${g.on ? ' on' : ''}`} onClick={() => setGuide({ on: !g.on })}
+          title="Show a scale on the neck with interval labels, and flag riff notes outside it">Scale guide</button>
+        {g.on && (
+          <>
+            <label class="muted">
+              Root{' '}
+              <select value={g.root === null ? 'auto' : String(g.root)}
+                onChange={e => { const v = e.currentTarget.value; setGuide({ root: v === 'auto' ? null : Number(v) }); e.currentTarget.blur(); }}>
+                <option value="auto">Auto ({PITCH_NAMES[guessRoot(s)]})</option>
+                {PITCH_NAMES.map((nm, i) => <option key={nm} value={String(i)}>{nm}</option>)}
+              </select>
+            </label>
+            <label class="muted">
+              Scale{' '}
+              <select value={g.scale} onChange={e => { setGuide({ scale: e.currentTarget.value as ScaleId }); e.currentTarget.blur(); }}>
+                {(Object.keys(SCALE_NAMES) as ScaleId[]).map(id => <option key={id} value={id}>{SCALE_NAMES[id]}</option>)}
+              </select>
+            </label>
+            <span class="scale-notes">
+              {[...scale!].sort((a, b) => pc(a - root) - pc(b - root)).map(p => (
+                <span key={p} class={p === root ? 'sn root' : 'sn'}>{PITCH_NAMES[p]}<small>{intervalName(p, root)}</small></span>
+              ))}
+            </span>
+          </>
+        )}
+        <span class="spacer" />
+        <span class="muted">Labels</span>
+        <span class="seg small" role="group" aria-label="Note labels">
+          {(['fret', 'note', 'interval'] as const).map(m => (
+            <button key={m} class={g.labels === m ? 'on' : ''} onClick={() => setGuide({ labels: m })}>
+              {m === 'fret' ? 'Fret' : m === 'note' ? 'Note' : 'Interval'}
+            </button>
+          ))}
+        </span>
+      </div>
       <div class="fb-wrap">
         <div class="fb-names">
           {TUNINGS[s.tuning].pitches.map((p, i) => <div key={i} style={{ height: ROW_H }}>{noteName(p)}</div>)}
@@ -159,10 +201,15 @@ export function Fretboard() {
             {Array.from({ length: STRINGS }, (_, str) =>
               Array.from({ length: MAX_FRET + 1 }, (_, f) => {
                 const c = cells.get(`${str}:${f}`);
-                const cls = c
+                const pcCell = pc(pitchOf(s, { string: str, fret: f }));
+                const inScale = !!scale && scale.has(pcCell);
+                const cls = (c
                   ? `${c.hot ? ' hot' : c.soft ? ' soft' : c.ghost ? ' ghost' : ''}${c.next && !c.hot ? ' next' : ''}` +
-                    `${c.atCursor ? ' at-cursor' : ''}${opts.colour ? ' tint' : ''}`
-                  : '';
+                    `${c.atCursor ? ' at-cursor' : ''}${opts.colour ? ' tint' : ''}${strictScale && !inScale ? ' out' : ''}`
+                  : `${inScale ? ' scale' : ''}`) + `${scale && pcCell === root ? ' root' : ''}`;
+                // Riff dots follow the label mode; empty scale tones show their interval (or note name).
+                const riffLabel = g.labels === 'note' ? PITCH_NAMES[pcCell] : g.labels === 'interval' ? intervalName(pcCell, root) : String(f);
+                const emptyLabel = scale && g.labels !== 'note' ? intervalName(pcCell, root) : PITCH_NAMES[pcCell];
                 const showOrder = c && opts.order && c.soft && !c.hot && c.order.length > 0 && src !== 'live';
                 return (
                   <div key={`${str}:${f}`} class={`fb-cell${cls}`}
@@ -170,7 +217,7 @@ export function Fretboard() {
                     title={edit ? 'Click to add · Shift-click to stack on the previous note (chord)' : undefined}
                     onPointerDown={e => { e.preventDefault(); onCell(str, f, e.shiftKey); }}>
                     <span class="fb-dot" style={c ? dotStyle(c, f) : undefined}>
-                      {c ? f : noteName(pitchOf(s, { string: str, fret: f }))}
+                      {c ? riffLabel : emptyLabel}
                     </span>
                     {showOrder && <span class="fb-ord">{c.order.join('·')}</span>}
                   </div>

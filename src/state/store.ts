@@ -1,6 +1,7 @@
 import { batch, computed, effect, signal } from '@preact/signals';
-import { Song, barTicks, emptySong, notesInRange, pitchOf, songEndTick, soundingAt } from '../model/song';
-import { addNote, deleteNotes, setDuration, shiftFrom } from '../model/ops';
+import { Song, barTicks, beatTicks, emptySong, notesInRange, pitchOf, songEndTick, soundingAt } from '../model/song';
+import { SCALES, ScaleId, guessRoot, scalePitchClasses, songPitchClasses } from '../model/theory';
+import { addNote, copyNotes, deleteNotes, duplicateNotes, NewNote, pasteNotes, setDuration, shiftFrets, shiftFrom } from '../model/ops';
 import { History } from '../model/history';
 import { decodeSong, encodeSong } from '../codec/codec';
 import { Player } from '../audio/player';
@@ -385,3 +386,77 @@ export function toggleDotted() {
   dotted.value = !dotted.value;
   applyLengthToSelection();
 }
+
+// ---- sequencer-style editing: clipboard, duplicate, fine-tune ----
+let clipboard: NewNote[] = [];
+
+export function copySelection() {
+  if (selection.value.size) clipboard = copyNotes(song.value, selection.value);
+}
+
+export function cutSelection() {
+  if (!selection.value.size) return;
+  copySelection();
+  deleteSelection();
+}
+
+/** Paste at the insert cursor; the pasted notes come in selected so you can tweak them straight away. */
+export function pasteAtCursor() {
+  if (!clipboard.length) return;
+  const at = cursor.value;
+  const { song: next, ids } = pasteNotes(song.value, clipboard, at);
+  const span = Math.max(...clipboard.map(c => c.start + c.dur));
+  batch(() => {
+    commit(next);
+    selection.value = ids;
+    cursor.value = at + span;
+  });
+}
+
+export function duplicateSelection() {
+  if (!selection.value.size) return;
+  const s = song.value;
+  const { song: next, ids } = duplicateNotes(s, selection.value, barTicks(s.timeSig), beatTicks(s.timeSig));
+  batch(() => {
+    commit(next);
+    selection.value = ids;
+  });
+}
+
+/** Alt+↑/↓ or mouse wheel: move the selected notes a semitone along their strings. Hear it when stopped. */
+export function nudgeFrets(d: number, ids: Set<number> = selection.value) {
+  if (!ids.size) return;
+  commit(shiftFrets(song.value, ids, d));
+  if (!playing.value) {
+    const first = song.value.notes.find(n => ids.has(n.id));
+    if (first) previewNote(first.string, first.fret);
+  }
+}
+
+/** Click a bar label: select that bar's notes and put the cursor at its start. */
+export function selectBar(b: number) {
+  const bar = barTicks(song.value.timeSig);
+  selection.value = new Set(notesInRange(song.value.notes, b * bar, (b + 1) * bar).map(n => n.id));
+  cursor.value = b * bar;
+  lastInsertStart = null;
+  if (!playing.value) seek(b * bar);
+}
+
+// ---- scale guide (per-viewer, not part of the share link) ----
+export type LabelMode = 'fret' | 'note' | 'interval';
+export type Guide = { on: boolean; root: number | null; scale: ScaleId; labels: LabelMode };
+const GUIDE_KEY = 'jfret:guide';
+function loadGuide(): Guide {
+  const d: Guide = { on: false, root: null, scale: 'song', labels: 'fret' };
+  try { return { ...d, ...JSON.parse(localStorage.getItem(GUIDE_KEY) ?? '{}') }; } catch { return d; }
+}
+export const guide = signal<Guide>(loadGuide());
+effect(() => { try { localStorage.setItem(GUIDE_KEY, JSON.stringify(guide.value)); } catch { /* ignore */ } });
+export function setGuide(patch: Partial<Guide>) {
+  guide.value = { ...guide.value, ...patch };
+}
+/** Root pitch class in use: the chosen one, or a guess from the riff (its lowest note). */
+export const guideRoot = computed(() => guide.value.root ?? guessRoot(song.value));
+/** Pitch classes of the guide scale. "Notes in this riff" uses exactly the riff's notes. */
+export const guideScale = computed(() =>
+  guide.value.scale === 'song' ? songPitchClasses(song.value) : scalePitchClasses(guideRoot.value, SCALES[guide.value.scale]));

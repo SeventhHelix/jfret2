@@ -27,6 +27,9 @@ export function App() {
             <span><kbd>Space</kbd> play</span>
             <span><kbd>1</kbd>–<kbd>6</kbd> note length, <kbd>.</kbd> dotted</span>
             <span><kbd>←</kbd><kbd>→</kbd> nudge, <kbd>↑</kbd><kbd>↓</kbd> change string</span>
+            <span><kbd>Alt</kbd>+<kbd>↑</kbd><kbd>↓</kbd> or mouse wheel on a note: up/down a fret</span>
+            <span>Click a bar number to select the bar, <kbd>L</kbd> to loop it</span>
+            <span><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy, paste at cursor</span>
             <span><kbd>Backspace</kbd> remove the note you just entered</span>
             <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</span>
           </p>
