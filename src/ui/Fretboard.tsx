@@ -1,11 +1,12 @@
+import { useEffect, useRef } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { MAX_FRET, Note, STRINGS, TUNINGS, barTicks, beatTicks, noteName, notesInRange, pitchOf } from '../model/song';
 import {
   cursor, cursorIds, editMode, fretMode, guide, guideRoot, guideScale, hotIds, insertNote, nextIds, playhead, playing, previewNote,
   setGuide, softIds, softSource,
-  song, toggleView, undo, view,
+  setView, song, toggleView, undo, view,
 } from '../state/store';
-import { fretHue, intervalHue } from './colors';
+import { intervalHue, noteHue } from './colors';
 import { PITCH_NAMES, SCALE_NAMES, ScaleId, guessRoot, intervalName, pc } from '../model/theory';
 
 const ROW_H = 52;
@@ -24,13 +25,24 @@ type Cell = {
   ghost: number;      // 0..1 look-ahead strength for a next-bar note (0 = not a ghost)
   approach: number;   // 1 = about to play / in view, lower = further away (motion)
   played: boolean;    // every soft note at this spot has already sounded (motion)
-  order: number[];    // playing order within the soft set
+  hue: number | null; // position colour of the first note drawn here
 };
 
 export function Fretboard() {
+  // Close the Display menu on any click outside it.
+  const optsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (e: PointerEvent) => {
+      const el = optsRef.current;
+      if (el?.open && !el.contains(e.target as Node)) el.open = false;
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, []);
   const s = song.value;
   const edit = editMode.value;
   const opts = view.value;
+  const hueOf = noteHue.value;
   const t = playhead.value;
   const bar = barTicks(s.timeSig);
   const beat = beatTicks(s.timeSig);
@@ -50,15 +62,12 @@ export function Fretboard() {
     const k = `${n.string}:${n.fret}`;
     let c = cells.get(k);
     if (!c) {
-      c = { hot: false, soft: false, next: false, atCursor: false, ghost: 0, approach: 0, played: true, order: [] };
+      c = { hot: false, soft: false, next: false, atCursor: false, ghost: 0, approach: 0, played: true, hue: null };
       cells.set(k, c);
     }
     return c;
   };
 
-  // Playing order within the soft set (chords share a number).
-  const softNotes = s.notes.filter(n => soft.has(n.id));
-  const onsetIndex = new Map([...new Set(softNotes.map(n => n.start))].map((st, i) => [st, i + 1] as const));
   const motionWindow = beat * 2; // notes grow in over the two beats before they sound
 
   for (const n of s.notes) {
@@ -67,10 +76,10 @@ export function Fretboard() {
     const c = cellAt(n);
     c.hot ||= isHot;
     c.soft ||= isSoft;
+    if (isSoft) c.hue ??= hueOf(n);
     c.next ||= isNext;
     c.atCursor ||= isCur;
     if (isSoft) {
-      c.order.push(onsetIndex.get(n.start)!);
       const done = n.start + n.dur <= t;
       c.played &&= done;
       const approach = n.start <= t ? 1 : clamp01(1 - (n.start - t) / motionWindow);
@@ -86,7 +95,10 @@ export function Fretboard() {
     for (const n of notesInRange(s.notes, barStart + bar, barStart + 2 * bar)) {
       const c = cellAt(n);
       // A spot that already finished in this bar can re-light as a look-ahead (riffs often revisit the same frets).
-      if (!c.hot && (!c.soft || c.played)) c.ghost = Math.max(c.ghost, 0.08 + 0.92 * strength);
+      if (!c.hot && (!c.soft || c.played)) {
+        c.ghost = Math.max(c.ghost, 0.08 + 0.92 * strength);
+        c.hue ??= hueOf(n);
+      }
     }
   }
 
@@ -101,19 +113,23 @@ export function Fretboard() {
 
   const dotStyle = (c: Cell, fret: number): JSX.CSSProperties | undefined => {
     const st: Record<string, string | number> = {};
-    if (opts.colour && (c.soft || c.ghost)) st['--h'] = fretHue(fret);
+    if (opts.colour && (c.soft || c.ghost) && c.hue !== null) st['--h'] = c.hue;
     if (!c.hot && c.soft && opts.motion) {
-      let scale = c.played ? 0.8 : 0.8 + 0.2 * c.approach;
-      let opacity = c.played ? 0.5 : 0.7 + 0.3 * c.approach;
-      if (c.played && c.ghost) { // finished here, and coming back next bar: grow with the look-ahead
-        scale = Math.max(scale, 0.5 + 0.4 * c.ghost);
-        opacity = Math.max(opacity, 0.12 + 0.6 * c.ghost);
+      // Focus on what's coming: notes about to play ramp up to solid, far-off ones are barely there,
+      // and notes already played fade out. (The playing note itself is drawn solid by the .hot style.)
+      const a = c.approach * c.approach; // ease-in: stays faint until it's actually close
+      let scale = c.played ? 0.72 : 0.72 + 0.28 * a;
+      let opacity = c.played ? 0.18 : 0.15 + 0.85 * a;
+      if (c.played && c.ghost) { // finished here, and coming back next bar: a faint look-ahead hint
+        scale = Math.max(scale, 0.55 + 0.25 * c.ghost);
+        opacity = Math.max(opacity, 0.1 + 0.35 * c.ghost);
       }
       st.transform = `scale(${scale.toFixed(3)})`;
       st.opacity = opacity.toFixed(3);
     } else if (!c.hot && !c.soft && c.ghost) {
       st.transform = `scale(${(0.5 + 0.4 * c.ghost).toFixed(3)})`;
-      st.opacity = (0.12 + 0.55 * c.ghost).toFixed(3);
+      // With Motion on, keep next-bar hints below the notes that are about to play in this bar.
+      st.opacity = (0.12 + (opts.motion ? 0.35 : 0.55) * c.ghost).toFixed(3);
     }
     return Object.keys(st).length ? (st as JSX.CSSProperties) : undefined;
   };
@@ -133,12 +149,28 @@ export function Fretboard() {
         <span class="legend muted">
           <i class="lg hot" /> playing <i class="lg next" /> next
         </span>
-        <span class="chips" role="group" aria-label="Fretboard display options">
-          <button class={`chip${opts.lookAhead ? ' on' : ''}`} onClick={() => toggleView('lookAhead')} title="Fade in the next bar's notes as the bar runs out">Look-ahead</button>
-          <button class={`chip${opts.motion ? ' on' : ''}`} onClick={() => toggleView('motion')} title="Upcoming notes grow in; played notes fade back">Motion</button>
-          <button class={`chip${opts.order ? ' on' : ''}`} onClick={() => toggleView('order')} title="Number the notes in playing order">Order</button>
-          <button class={`chip${opts.colour ? ' on' : ''}`} onClick={() => toggleView('colour')} title="Colour notes by neck position (matches the timeline)">Colour</button>
-        </span>
+        <details class="opts" ref={optsRef}>
+          <summary title="Display options (saved in this browser)">⚙ Display</summary>
+          <div class="opts-pop">
+            <label><input type="checkbox" checked={opts.lookAhead} onChange={() => toggleView('lookAhead')} />
+              <span><b>Look-ahead</b> fade in the next bar's notes as the bar runs out</span></label>
+            <label><input type="checkbox" checked={opts.motion} onChange={() => toggleView('motion')} />
+              <span><b>Motion</b> upcoming notes grow in, far-off and played notes fade</span></label>
+            <label><input type="checkbox" checked={opts.colour} onChange={() => toggleView('colour')} />
+              <span><b>Colour by position</b> same colours on the neck and the timeline</span></label>
+            <div class={`opts-sub${opts.colour ? '' : ' off'}`}>
+              <span class="muted">Colour range</span>
+              <span class="seg small" role="group" aria-label="Colour range">
+                {([['riff', 'Riff'], ['bar', 'Per bar'], ['neck', 'Whole neck']] as const).map(([k, label]) => (
+                  <button key={k} class={opts.colourRange === k ? 'on' : ''} onClick={() => setView({ colourRange: k })}
+                    title={k === 'riff' ? "Lowest to highest fret in the whole riff" : k === 'bar' ? "Each bar's own lowest to highest fret" : 'Frets 0-14 of the neck'}>
+                    {label}
+                  </button>
+                ))}
+              </span>
+            </div>
+          </div>
+        </details>
         <span class="seg small" role="group" aria-label="Fretboard mode">
           <button class={fretMode.value === 'live' ? 'on' : ''} onClick={() => { fretMode.value = 'live'; }}>Live</button>
           <button class={fretMode.value === 'bar' ? 'on' : ''} onClick={() => { fretMode.value = 'bar'; }}>Bar / selection</button>
@@ -212,7 +244,6 @@ export function Fretboard() {
                 // Riff dots follow the label mode; empty scale tones show their interval (or note name).
                 const riffLabel = g.labels === 'note' ? PITCH_NAMES[pcCell] : g.labels === 'interval' ? intervalName(pcCell, root) : String(f);
                 const emptyLabel = scale && g.labels !== 'note' ? intervalName(pcCell, root) : PITCH_NAMES[pcCell];
-                const showOrder = c && opts.order && c.soft && !c.hot && c.order.length > 0 && src !== 'live';
                 return (
                   <div key={`${str}:${f}`} class={`fb-cell${cls}`}
                     style={{ left: cellX(f), top: str * ROW_H, width: cellW(f), height: ROW_H }}
@@ -221,7 +252,6 @@ export function Fretboard() {
                     <span class="fb-dot" style={c ? dotStyle(c, f) : inScale ? ({ '--ic': intervalHue(pcCell - root) } as JSX.CSSProperties) : undefined}>
                       {c ? riffLabel : emptyLabel}
                     </span>
-                    {showOrder && <span class="fb-ord">{c.order.join('·')}</span>}
                   </div>
                 );
               }),

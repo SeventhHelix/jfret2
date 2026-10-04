@@ -42,15 +42,19 @@ export const countIn = signal(false);
 export const errorMsg = signal<string | null>(null);
 
 // Fretboard view options (a per-viewer preference, kept in localStorage, not in the share link).
-export type ViewOpts = { lookAhead: boolean; motion: boolean; order: boolean; colour: boolean };
+export type ColourRange = 'riff' | 'bar' | 'neck';
+export type ViewOpts = { lookAhead: boolean; motion: boolean; colour: boolean; colourRange: ColourRange };
 const VIEW_KEY = 'jfret:view';
 function loadView(): ViewOpts {
-  const defaults: ViewOpts = { lookAhead: true, motion: true, order: true, colour: true };
+  const defaults: ViewOpts = { lookAhead: true, motion: true, colour: true, colourRange: 'riff' };
   try { return { ...defaults, ...JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') }; } catch { return defaults; }
 }
 export const view = signal<ViewOpts>(loadView());
 effect(() => { try { localStorage.setItem(VIEW_KEY, JSON.stringify(view.value)); } catch { /* ignore */ } });
-export function toggleView(k: keyof ViewOpts) {
+export function setView(patch: Partial<ViewOpts>) {
+  view.value = { ...view.value, ...patch };
+}
+export function toggleView(k: 'lookAhead' | 'motion' | 'colour') {
   view.value = { ...view.value, [k]: !view.value[k] };
 }
 

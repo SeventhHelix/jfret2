@@ -7,7 +7,7 @@ import {
   selection, song, view,
 } from '../state/store';
 import { pc } from '../model/theory';
-import { fretHue } from './colors';
+import { noteHue } from './colors';
 
 const PX = 4;    // pixels per tick (quarter note = 96 px)
 const LANE = 30; // px per string lane
@@ -127,6 +127,7 @@ export function TabRoll() {
   const lp = loopOn.value ? loop.value : null;
   const hot = hotIds.value;
   const tint = view.value.colour;
+  const hueOf = noteHue.value;
   const scale = guide.value.on && guide.value.scale !== 'song' ? guideScale.value : null;
   // Wheel over a note: fine-tune its pitch a semitone along its string (the whole selection if it's selected).
   const onWheel = (e: WheelEvent, id: number) => {
@@ -180,7 +181,7 @@ export function TabRoll() {
                 title={scale && !scale.has(pc(pitchOf(s, n))) ? 'Outside the chosen scale' : undefined}
                 style={{
                   left: n.start * PX, top: n.string * LANE + 3, width: Math.max(6, n.dur * PX - 1), height: LANE - 6,
-                  '--h': fretHue(n.fret),
+                  '--h': hueOf(n),
                 } as JSX.CSSProperties}>
                 <span class="rn-fret">{n.fret}</span>
                 {/* where this fret sits within the bar's lowest..highest fret: the hand shape, without decoding numbers */}
