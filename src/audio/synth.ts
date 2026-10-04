@@ -25,7 +25,11 @@ export function midiToFreq(midi: number): number {
 function pluckBuffer(c: BaseAudioContext, midi: number): AudioBuffer {
   const sr = c.sampleRate;
   const freq = midiToFreq(midi);
-  const period = Math.max(2, Math.round(sr / freq));
+  // Delay line length is period + allpass fractional delay, so pitch stays in tune.
+  const P = sr / freq - 0.5;
+  const period = Math.max(2, Math.floor(P));
+  const frac = P - period;
+  const C = (1 - frac) / (1 + frac);
   const len = Math.floor(sr * 3);
   const buf = c.createBuffer(1, len, sr);
   const data = buf.getChannelData(0);
@@ -35,13 +39,23 @@ function pluckBuffer(c: BaseAudioContext, midi: number): AudioBuffer {
     lp += 0.6 * (Math.random() * 2 - 1 - lp); // softened pick attack
     ring[i] = lp;
   }
+  let mean = 0;
+  for (let i = 0; i < period; i++) mean += ring[i];
+  mean /= period;
+  for (let i = 0; i < period; i++) ring[i] -= mean; // remove DC offset
+  let apPrevX = 0;
+  let apPrevY = 0;
   const decay = Math.pow(0.5, 1 / (freq * 1.2)); // ~1.2 s half-life, independent of pitch
   let idx = 0;
   for (let i = 0; i < len; i++) {
     const next = idx + 1 === period ? 0 : idx + 1;
     const v = ring[idx];
     data[i] = v;
-    ring[idx] = decay * 0.5 * (v + ring[next]);
+    const avg = 0.5 * (v + ring[next]);
+    const y = C * avg + apPrevX - C * apPrevY;
+    apPrevX = avg;
+    apPrevY = y;
+    ring[idx] = decay * y;
     idx = next;
   }
   return buf;

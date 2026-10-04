@@ -40,7 +40,7 @@ export class Player {
     playPluck(ctx, midi, ctx.currentTime, 0.9);
   }
 
-  play(fromTick: number) {
+  play(fromTick: number, countIn = this.countIn) {
     this.pause();
     const ctx = getCtx();
     void ctx.resume();
@@ -48,7 +48,7 @@ export class Player {
     this.time = ctx.currentTime + 0.06;
     this.endAt = null;
     this.timeline = [];
-    if (this.countIn) {
+    if (countIn) {
       const beat = beatTicks(this.song.timeSig);
       const beats = barTicks(this.song.timeSig) / beat;
       const beatSec = beat * this.secPerTick();
@@ -81,6 +81,7 @@ export class Player {
 
   private schedule() {
     const ctx = getCtx();
+    if (this.time < ctx.currentTime) this.time = ctx.currentTime + 0.01; // drop late notes instead of bursting them
     const horizon = ctx.currentTime + LOOKAHEAD_SEC;
     const end = songEndTick(this.song);
     const bar = barTicks(this.song.timeSig);
@@ -110,7 +111,7 @@ export class Player {
     if (latest !== null) this.onTick(latest);
     if (this.endAt !== null && now >= this.endAt) {
       this.pause();
-      this.onTick(songEndTick(this.song));
+      this.onTick(Math.max(0, songEndTick(this.song) - 1));
       this.onEnd();
     }
   }

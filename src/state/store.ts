@@ -52,12 +52,12 @@ function pruneSelection() {
 
 export function undo() {
   const prev = history.undo(song.value);
-  if (prev) { song.value = prev; pruneSelection(); }
+  if (prev) { song.value = prev; pruneSelection(); cursor.value = Math.min(cursor.value, songEndTick(song.value)); }
 }
 
 export function redo() {
   const next = history.redo(song.value);
-  if (next) { song.value = next; pruneSelection(); }
+  if (next) { song.value = next; pruneSelection(); cursor.value = Math.min(cursor.value, songEndTick(song.value)); }
 }
 
 /** Selection, or every note when nothing is selected. */
@@ -92,7 +92,7 @@ export function togglePlay() {
   const lp = loopOn.value ? loop.value : null;
   let from = playhead.value;
   if (lp && (from < lp.start || from >= lp.end)) from = lp.start;
-  else if (!lp && from >= songEndTick(song.value)) from = 0;
+  else if (!lp && from >= songEndTick(song.value) - 1) from = 0;
   playhead.value = from;
   player.play(from);
   playing.value = true;
@@ -101,7 +101,7 @@ export function togglePlay() {
 export function seek(tick: number) {
   const t = Math.max(0, Math.round(tick));
   playhead.value = t;
-  if (playing.value) player.play(t);
+  if (playing.value) player.play(t, false);
 }
 
 export function rewind() {
@@ -137,6 +137,8 @@ export function insertNote(string: number, fret: number) {
 
 export function newSong() {
   if (song.value.notes.length && !confirm('Start a new riff? You can undo this.')) return;
+  player.pause();
+  playing.value = false;
   batch(() => {
     commit(emptySong());
     selection.value = new Set();
@@ -144,7 +146,7 @@ export function newSong() {
     loop.value = null;
     loopOn.value = false;
     feel.clear();
-    seek(0);
+    playhead.value = 0;
   });
 }
 
@@ -212,12 +214,21 @@ export function loadInitial() {
 
 let saveTimer: number | undefined;
 export function startAutosave() {
+  let first = true;
   effect(() => {
     const payload = encodeSong(song.value);
+    const isFirst = first;
+    first = false;
+    // Initial load: don't overwrite the saved riff, and keep a bad link visible.
+    const skipUrl = isFirst && errorMsg.peek() !== null;
     clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
-      window.history.replaceState(null, '', `#s=${payload}`);
-      try { localStorage.setItem(LS_KEY, payload); } catch { /* ignore */ }
+      if (!skipUrl) {
+        try { window.history.replaceState(null, '', `#s=${payload}`); } catch { /* ignore */ }
+      }
+      if (!isFirst) {
+        try { localStorage.setItem(LS_KEY, payload); } catch { /* ignore */ }
+      }
     }, 300);
   });
   // A different link pasted into the same tab.
