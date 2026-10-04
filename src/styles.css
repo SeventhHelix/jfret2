@@ -182,3 +182,6 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 .sn.root small { color: #fff; }
 .tv-tuplet { fill: var(--muted); font-size: 11px; font-weight: 700; font-style: italic; text-anchor: middle; }
 .tv-bracket { fill: none; stroke: var(--muted); stroke-width: 1; }
+/* slightly smaller scale-tone circles, same text size as before (13px × 0.74 ≈ 9.6px) */
+.fb-cell.scale .fb-dot { width: 23px; height: 23px; transform: translateY(-13px); font-size: 9.6px; }
+.fb-cell.scale:hover .fb-dot { width: 34px; height: 34px; font-size: 13px; transform: scale(0.9); }
