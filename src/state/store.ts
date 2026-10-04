@@ -20,8 +20,10 @@ export const NOTE_LENGTHS = [
 ] as const;
 export const baseLength = signal(24);
 export const dotted = signal(false);
-/** Dotted adds half the value; a dotted 32nd (4.5 ticks) can't be represented, so it stays plain. */
-export const entryDur = computed(() => (dotted.value && baseLength.value >= 6 ? baseLength.value * 1.5 : baseLength.value));
+export const triplet = signal(false);
+/** Dotted adds half the value (a dotted 32nd, 4.5 ticks, can't be represented, so it stays plain). Triplet is two thirds. */
+export const entryDur = computed(() =>
+  triplet.value ? (baseLength.value * 2) / 3 : dotted.value && baseLength.value >= 6 ? baseLength.value * 1.5 : baseLength.value);
 
 // ---- state ----
 export const song = signal<Song>(emptySong());
@@ -379,11 +381,35 @@ function applyLengthToSelection() {
 /** Pick the length for new notes; with notes selected, also resets them to it. */
 export function setBaseLength(ticks: number) {
   baseLength.value = ticks;
+  if (triplet.value) setTripletGrid(true); // keep the grid on the matching triplet
   applyLengthToSelection();
 }
 
 export function toggleDotted() {
-  dotted.value = !dotted.value;
+  batch(() => {
+    dotted.value = !dotted.value;
+    if (dotted.value && triplet.value) setTripletGrid(false);
+  });
+  applyLengthToSelection();
+}
+
+const TRIPLET_GRIDS = [16, 8, 4]; // quarter, 8th, 16th triplet grids offered in the toolbar
+function setTripletGrid(on: boolean) {
+  triplet.value = on;
+  if (on) {
+    // Snap edits to the matching triplet grid (finest offered if the note is shorter).
+    grid.value = TRIPLET_GRIDS.find(g => g <= entryDur.value) ?? 4;
+  } else if (grid.value % 3 !== 0) {
+    grid.value = 12; // was on a triplet grid: back to straight 8ths
+  }
+}
+
+/** Triplet toggle: notes become two thirds as long (three in the space of two). Excludes dotted. */
+export function toggleTriplet() {
+  batch(() => {
+    if (!triplet.value) dotted.value = false;
+    setTripletGrid(!triplet.value);
+  });
   applyLengthToSelection();
 }
 

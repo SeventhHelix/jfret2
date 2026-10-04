@@ -3,11 +3,13 @@ import { Song } from '../model/song';
 import { applyFeel, evenOut, legato, quantize } from '../model/ops';
 import {
   NOTE_LENGTHS, baseLength, commit, deleteSelection, dotted, feel, grid, selection, setBaseLength, setLoopFromSelection, song,
+  toggleTriplet, triplet,
   targetIds, toggleDotted,
 } from '../state/store';
 
 const GRIDS = [
   { label: '1/4', t: 24 },
+  { label: '1/4 triplet', t: 16 },
   { label: '1/8', t: 12 },
   { label: '1/16', t: 6 },
   { label: '1/8 triplet', t: 8 },
@@ -32,6 +34,8 @@ export function Toolbar() {
         </span>
         <button class={`dot-btn${dotted.value ? " on" : ""}`} onClick={toggleDotted} disabled={baseLength.value < 6}
           title="Dotted: one and a half times as long (key .)">● Dotted</button>
+        <button class={`dot-btn${triplet.value ? " on" : ""}`} onClick={toggleTriplet}
+          title="Triplet: three notes in the time of two (key T). Also switches the grid to triplets.">³ Triplet</button>
         <span class="muted">{count ? `Applies to new notes and resets the ${count} selected` : "Used for new notes"}</span>
       </div>
       <div class="row">

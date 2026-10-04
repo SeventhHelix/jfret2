@@ -180,3 +180,5 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 .sn small { color: hsl(var(--ic) 85% 80%); }
 .sn.root { border-color: #f1ece0; background: #f1ece022; }
 .sn.root small { color: #fff; }
+.tv-tuplet { fill: var(--muted); font-size: 11px; font-weight: 700; font-style: italic; text-anchor: middle; }
+.tv-bracket { fill: none; stroke: var(--muted); stroke-width: 1; }

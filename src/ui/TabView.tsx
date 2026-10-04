@@ -129,7 +129,7 @@ export function TabView() {
       }
       if (ev.value.stem !== 'none') els.push(<line key={`st${b}-${ev.start}`} class="tv-stem" x1={x} x2={x} y1={stemTop} y2={stemBottom(ev.value)} />);
       if (ev.value.dotted) els.push(<circle key={`d${b}-${ev.start}`} class="tv-dot" cx={x + 5} cy={stemBottom(ev.value) - 3} r={1.6} />);
-      if (ev.value.triplet) els.push(<text key={`tr${b}-${ev.start}`} class="tv-label" x={x - 3} y={stemBottom(ev.value) + 12}>3</text>);
+      if (ev.value.triplet && ev.beam === null) els.push(<text key={`tr${b}-${ev.start}`} class="tv-tuplet" x={x} y={stemBottom(ev.value) + 13}>3</text>);
       if (ev.beam === null) {
         for (let k = 0; k < ev.value.flags; k++) {
           const fy = stemBottom(ev.value) - k * 5;
@@ -144,6 +144,11 @@ export function TabView() {
     for (const [gid, g] of groups) {
       const by = stemTop + STEM_LEN;
       els.push(<line key={`bm${b}-${gid}`} class="tv-beam" x1={xIn(b, g[0].start)} x2={xIn(b, g[g.length - 1].start)} y1={by} y2={by} />);
+      if (g.every(ev => ev.value.triplet)) { // one "3" bracket per triplet group, like printed music
+        const xa = xIn(b, g[0].start), xb = xIn(b, g[g.length - 1].start), xm = (xa + xb) / 2;
+        els.push(<path key={`tb${b}-${gid}`} class="tv-bracket" d={`M${xa} ${by + 6} v4 H${xm - 6} M${xm + 6} ${by + 10} H${xb} v-4`} />);
+        els.push(<text key={`tt${b}-${gid}`} class="tv-tuplet" x={xm} y={by + 14}>3</text>);
+      }
       for (let level = 2; level <= 3; level++) {
         const ly = by - (level - 1) * 5;
         g.forEach((ev, i) => {

@@ -84,3 +84,16 @@ describe('restsFor after unaligned gaps', () => {
     expect([last.start, last.value.ticks]).toEqual([48, 48]);
   });
 });
+
+describe('triplet values', () => {
+  it('recognises half, quarter, 8th, 16th and 32nd triplets', () => {
+    for (const t of [32, 16, 8, 4, 2]) expect(displayValue(t)).toMatchObject({ ticks: t, triplet: true });
+  });
+
+  it('groups a beat of 8th triplets under one beam', () => {
+    const notes = [0, 8, 16].map((s, i) => ({ id: i + 1, start: s, dur: 8, string: 0, fret: 0 }));
+    const { events } = layoutBar(notes, 0, 96, 24);
+    expect(new Set(events.map(e => e.beam)).size).toBe(1);
+    expect(events.every(e => e.value.triplet)).toBe(true);
+  });
+});

@@ -10,6 +10,7 @@ export const VALUES: RhythmValue[] = [
   V(96, 0, false, false, 'none'), // whole
   V(72, 0, true, false, 'half'),  // dotted half
   V(48, 0, false, false, 'half'), // half
+  V(32, 0, false, true, 'half'),  // half triplet
   V(36, 0, true),                 // dotted quarter
   V(24, 0),                       // quarter
   V(18, 1, true),                 // dotted 8th
@@ -20,6 +21,7 @@ export const VALUES: RhythmValue[] = [
   V(6, 2),                        // 16th
   V(4, 2, false, true),           // 16th triplet
   V(3, 3),                        // 32nd
+  V(2, 3, false, true),           // 32nd triplet
 ];
 
 export function displayValue(ticks: number): RhythmValue {

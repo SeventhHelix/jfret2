@@ -2,7 +2,7 @@ import { useEffect } from 'preact/hooks';
 import { moveNotes } from '../model/ops';
 import {
   commit, copySelection, cutSelection, deleteBeforeCursor, deleteSelection, duplicateSelection, editMode, grid, nudgeFrets,
-  pasteAtCursor, redo, selectAll, selection, setBaseLength, song, toggleDotted, toggleLoop, togglePlay, undo,
+  pasteAtCursor, redo, selectAll, selection, setBaseLength, song, toggleDotted, toggleLoop, togglePlay, toggleTriplet, undo,
 } from '../state/store';
 
 // 1=whole 2=half 3=quarter 4=8th 5=16th 6=32nd
@@ -28,6 +28,7 @@ export function useKeyboard() {
       if (mod && key === 'd') { e.preventDefault(); duplicateSelection(); return; }
       if (DUR_KEYS[e.key] && !mod) { setBaseLength(DUR_KEYS[e.key]); return; } // also resets selected notes
       if (e.key === '.' && !mod) { toggleDotted(); return; }
+      if (key === 't' && !mod) { toggleTriplet(); return; }
       const sel = selection.value;
       if (!sel.size) {
         if (e.key === 'Backspace') { e.preventDefault(); deleteBeforeCursor(); }

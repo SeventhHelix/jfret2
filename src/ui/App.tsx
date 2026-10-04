@@ -25,7 +25,7 @@ export function App() {
             <span>Drag a block to move it; drag its right edge to resize</span>
             <span>Drag across the tab to loop</span>
             <span><kbd>Space</kbd> play</span>
-            <span><kbd>1</kbd>–<kbd>6</kbd> note length, <kbd>.</kbd> dotted</span>
+            <span><kbd>1</kbd>–<kbd>6</kbd> note length, <kbd>.</kbd> dotted, <kbd>T</kbd> triplet</span>
             <span><kbd>←</kbd><kbd>→</kbd> nudge, <kbd>↑</kbd><kbd>↓</kbd> change string</span>
             <span><kbd>Alt</kbd>+<kbd>↑</kbd><kbd>↓</kbd> or mouse wheel on a note: up/down a fret</span>
             <span>Click a bar number to select the bar, <kbd>L</kbd> to loop it</span>
