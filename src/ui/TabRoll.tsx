@@ -138,6 +138,19 @@ export function TabRoll() {
     wheelAcc.current = 0;
   };
   const curBar = Math.floor(playhead.value / bar);
+  // Fret range per bar, so each marker shows where a note sits within that bar's hand shape, not the whole neck.
+  // A span of at least 3 frets keeps two neighbouring frets from looking a full hand apart.
+  const barRange = new Map<number, { lo: number; span: number }>();
+  for (const n of s.notes) {
+    const b = Math.floor(n.start / bar);
+    const r = barRange.get(b);
+    barRange.set(b, r ? { lo: Math.min(r.lo, n.fret), span: Math.max(r.lo + r.span, n.fret) - Math.min(r.lo, n.fret) } : { lo: n.fret, span: 0 });
+  }
+  const posInBar = (n: { start: number; fret: number }) => {
+    const r = barRange.get(Math.floor(n.start / bar))!;
+    if (r.span === 0) return 50; // one fret in the whole bar: no shape to show, so centre it
+    return 10 + ((n.fret - r.lo) / Math.max(r.span, 3)) * 80; // 10%..90% of the block width
+  };
 
   return (
     <div class="panel">
@@ -170,8 +183,8 @@ export function TabRoll() {
                   '--h': fretHue(n.fret),
                 } as JSX.CSSProperties}>
                 <span class="rn-fret">{n.fret}</span>
-                {/* mini neck: where on the neck (0-24) this fret sits, so the shape reads without decoding numbers */}
-                <i class="rn-pos" style={{ left: `${(n.fret / MAX_FRET) * 100}%` }} />
+                {/* where this fret sits within the bar's lowest..highest fret: the hand shape, without decoding numbers */}
+                <i class="rn-pos" style={{ left: `${posInBar(n)}%` }} />
               </div>
             ))}
             <div class="roll-cursor" style={{ left: cursor.value * PX }} />
