@@ -3,6 +3,7 @@ import { Song, barTicks, beatTicks, emptySong, notesInRange, pitchOf, songEndTic
 import { SCALES, ScaleId, guessRoot, scalePitchClasses, songPitchClasses } from '../model/theory';
 import { addNote, copyNotes, deleteNotes, duplicateNotes, NewNote, pasteNotes, setDuration, shiftFrets, shiftFrom } from '../model/ops';
 import { History } from '../model/history';
+import type { FlowGrouping } from '../model/flow';
 import { decodeSong, encodeSong } from '../codec/codec';
 import { Player } from '../audio/player';
 
@@ -44,11 +45,11 @@ export const errorMsg = signal<string | null>(null);
 // Fretboard view options (a per-viewer preference, kept in localStorage, not in the share link).
 export type ColourRange = 'riff' | 'bar' | 'neck';
 export type ViewOpts = {
-  lookAhead: boolean; nextRing: boolean; motion: boolean; colour: boolean; colourRange: ColourRange; flow: boolean; hand: boolean;
+  lookAhead: boolean; nextRing: boolean; motion: boolean; colour: boolean; colourRange: ColourRange; flow: boolean; flowGrouping: FlowGrouping; hand: boolean;
 };
 const VIEW_KEY = 'jfret:view';
 function loadView(): ViewOpts {
-  const defaults: ViewOpts = { lookAhead: true, nextRing: true, motion: true, colour: true, colourRange: 'riff', flow: true, hand: false };
+  const defaults: ViewOpts = { lookAhead: true, nextRing: true, motion: true, colour: true, colourRange: 'riff', flow: true, flowGrouping: 'none', hand: false };
   try { return { ...defaults, ...JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') }; } catch { return defaults; }
 }
 export const view = signal<ViewOpts>(loadView());

@@ -40,6 +40,7 @@ src/model/ops.ts       pure edit ops: add/move/resize/quantize/applyFeel/evenOut
                        copy/paste/duplicate/shiftFrets. All go through withNotes() -> normalizeNotes
 src/model/history.ts   undo/redo snapshots
 src/model/theory.ts    scales/modes, intervals, root guess
+src/model/flow.ts      flow path grouping modes (beat/strings/contour/arc) -> which links are dotted
 src/codec/codec.ts     Song <-> base64url binary payload (version byte, varints, string<<5|fret)
 src/notation/rhythm.ts duration -> display value, per-bar layout, rests, beaming, triplets
 src/audio/synth.ts     Karplus-Strong pluck (allpass-tuned) + metronome click

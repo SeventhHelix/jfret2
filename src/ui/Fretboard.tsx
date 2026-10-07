@@ -7,6 +7,7 @@ import {
   setView, song, toggleView, undo, view,
 } from '../state/store';
 import { intervalHue, noteHue } from './colors';
+import { FlowGrouping, FlowPt, groupLinks } from '../model/flow';
 import { PITCH_NAMES, SCALE_NAMES, ScaleId, guessRoot, intervalName, pc } from '../model/theory';
 
 const ROW_H = 52;
@@ -18,6 +19,13 @@ const DOUBLE_DOTS = [12, 24];
 const cellX = (f: number) => (f === 0 ? 0 : OPEN_W + (f - 1) * FRET_W);
 const cellW = (f: number) => (f === 0 ? OPEN_W : FRET_W);
 const midX = (f: number) => OPEN_W + (f - 0.5) * FRET_W;
+const FLOW_GROUPINGS: [FlowGrouping, string, string][] = [
+  ['none', 'None', 'One unbroken line'],
+  ['beat', 'Beat', 'Groups by note value, on the beat: quarters 2, 8ths 4, triplets 3, 16ths 6'],
+  ['strings', 'Strings', 'New group when you move to another string after 2+ notes on one'],
+  ['contour', 'Contour', 'New group at each peak and low point after a run of 3+ notes'],
+  ['arc', 'Arc', 'New group at each low point only, so an up-and-back sweep is one shape'],
+];
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
 type Cell = {
@@ -108,10 +116,13 @@ export function Fretboard() {
   const barStartT = Math.floor(t / bar) * bar;
   const flowSrc = src === 'live' ? notesInRange(s.notes, barStartT, barStartT + bar) : s.notes.filter(n => soft.has(n.id));
   const cx = (f: number) => (f === 0 ? OPEN_W / 2 : midX(f));
-  type Pt = { x: number; y: number; start: number; end: number; hue: number };
+  type Pt = FlowPt & { x: number; y: number; end: number; hue: number };
   const pts: Pt[] = [...new Set(flowSrc.map(n => n.start))].sort((a, b) => a - b).map(st => {
     const grp = flowSrc.filter(n => n.start === st); // a chord flows through its centre
+    const top = grp.reduce((a, n) => (pitchOf(s, n) > pitchOf(s, a) ? n : a)); // grouping follows a chord's top note
     return {
+      string: top.string,
+      pitch: pitchOf(s, top),
       x: grp.reduce((a, n) => a + cx(n.fret), 0) / grp.length,
       y: grp.reduce((a, n) => a + n.string * ROW_H + ROW_H / 2, 0) / grp.length,
       start: st,
@@ -127,9 +138,10 @@ export function Fretboard() {
     if (!prev || p.start - prev.end >= beat) phrases.push([p]);
     else cur.push(p);
   }
-  type Seg = { d: string; state: 'played' | 'current' | 'upcoming'; ahead: number; hue: number; ctrl: number[] };
+  type Seg = { d: string; state: 'played' | 'current' | 'upcoming'; ahead: number; hue: number; link: boolean; ctrl: number[] };
   const segs: Seg[] = [];
   for (const ph of phrases) {
+    const links = groupLinks(ph, opts.flowGrouping, bar); // dotted where the line moves on to the next chunk
     for (let i = 0; i + 1 < ph.length; i++) {
       const p0 = ph[i - 1] ?? ph[i], p1 = ph[i], p2 = ph[i + 1], p3 = ph[i + 2] ?? ph[i + 1];
       if (p1.x === p2.x && p1.y === p2.y) continue; // repeated note: nothing to draw
@@ -139,7 +151,7 @@ export function Fretboard() {
       const state = t >= p2.start ? 'played' : t >= p1.start ? 'current' : 'upcoming';
       segs.push({
         d: `M${p1.x} ${p1.y} C${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`,
-        state, ahead: 0, hue: p1.hue,
+        state, ahead: 0, hue: p1.hue, link: links[i],
         ctrl: [p1.x, p1.y, c1x, c1y, c2x, c2y, p2.x, p2.y, p1.start, p2.start],
       });
     }
@@ -237,6 +249,16 @@ export function Fretboard() {
               <span><b>Motion</b> upcoming notes grow in, far-off and played notes fade</span></label>
             <label><input type="checkbox" checked={opts.flow} onChange={() => toggleView('flow')} />
               <span><b>Flow path</b> a curve through the notes in playing order, with a dot riding it during playback</span></label>
+            <div class={`opts-sub${opts.flow ? '' : ' off'}`}>
+              <span class="muted">Grouping</span>
+              <span class="seg small" role="group" aria-label="Flow grouping">
+                {FLOW_GROUPINGS.map(([k, label, tip]) => (
+                  <button key={k} class={opts.flowGrouping === k ? 'on' : ''} onClick={() => setView({ flowGrouping: k })} title={tip}>
+                    {label}
+                  </button>
+                ))}
+              </span>
+            </div>
             <label><input type="checkbox" checked={opts.hand} onChange={() => toggleView('hand')} />
               <span><b>Hand position</b> a box around the frets the bar uses</span></label>
             <label><input type="checkbox" checked={opts.colour} onChange={() => toggleView('colour')} />
@@ -316,14 +338,14 @@ export function Fretboard() {
               <div key={i} class="fb-string" style={{ top: i * ROW_H + ROW_H / 2, height: 1 + i * 0.5 }} />
             ))}
             {(opts.flow || opts.hand) && (
-              <svg class="fb-flow" width={width} height={ROW_H * STRINGS} aria-hidden="true">
+              <svg class={`fb-flow${opts.flowGrouping !== 'none' ? ' grouped' : ''}`} width={width} height={ROW_H * STRINGS} aria-hidden="true">
                 {opts.hand && hand && (
                   <g>
                     <rect class="hand-box" x={hand.x} y={hand.y} width={hand.w} height={hand.h} rx={12} />
                   </g>
                 )}
                 {opts.flow && segs.map((sg, i) => (
-                  <path key={i} d={sg.d} class={`flow-seg ${sg.state}`}
+                  <path key={i} d={sg.d} class={`flow-seg ${sg.state}${sg.link ? ' link' : ''}`}
                     style={{ stroke: opts.colour ? `hsl(${sg.hue} 75% 70%)` : '#f1ece0', opacity: segOpacity(sg) }} />
                 ))}
                 {opts.flow && comet && <circle class="flow-comet" cx={comet.x} cy={comet.y} r={6} />}

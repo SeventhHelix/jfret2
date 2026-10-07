@@ -202,6 +202,9 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 .flow-seg { fill: none; stroke-width: 3; stroke-linecap: round; transition: opacity 0.15s linear; }
 .flow-seg.current { stroke-width: 4.5; }
 .flow-seg.upcoming { stroke-dasharray: 7 6; animation: flow-dash 0.9s linear infinite; }
+/* grouping: chunks read as solid shapes (no marching dashes), the hop to the next chunk is dotted */
+.fb-flow.grouped .flow-seg.upcoming { stroke-dasharray: none; animation: none; }
+.fb-flow.grouped .flow-seg.link { stroke-dasharray: 0 9; stroke-width: 3.5; animation: none; }
 @keyframes flow-dash { to { stroke-dashoffset: -13; } }
 .flow-comet { fill: #fff; filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 12px var(--accent)); }
 .hand-box { fill: #ffffff0a; stroke: #f1ece055; stroke-width: 1.5; stroke-dasharray: 6 5; }
