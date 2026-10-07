@@ -205,4 +205,3 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 @keyframes flow-dash { to { stroke-dashoffset: -13; } }
 .flow-comet { fill: #fff; filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 12px var(--accent)); }
 .hand-box { fill: #ffffff0a; stroke: #f1ece055; stroke-width: 1.5; stroke-dasharray: 6 5; }
-.hand-label { fill: #f1ece0aa; font-size: 10px; font-weight: 600; }

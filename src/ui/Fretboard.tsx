@@ -164,7 +164,7 @@ export function Fretboard() {
   const hand = fretted.length ? (() => {
     const lo = Math.min(...fretted.map(n => n.fret)), hi = Math.max(Math.max(...fretted.map(n => n.fret)), lo + 3);
     const sLo = Math.min(...fretted.map(n => n.string)), sHi = Math.max(...fretted.map(n => n.string));
-    return { x: cellX(lo) + 3, y: sLo * ROW_H + 4, w: cellX(hi) + FRET_W - cellX(lo) - 6, h: (sHi - sLo + 1) * ROW_H - 8, lo, hi };
+    return { x: cellX(lo) + 3, y: sLo * ROW_H + 4, w: cellX(hi) + FRET_W - cellX(lo) - 6, h: (sHi - sLo + 1) * ROW_H - 8 };
   })() : null;
 
   // Follow the music: keep the focused notes' frets in view (the neck is wider than most screens).
@@ -320,7 +320,6 @@ export function Fretboard() {
                 {opts.hand && hand && (
                   <g>
                     <rect class="hand-box" x={hand.x} y={hand.y} width={hand.w} height={hand.h} rx={12} />
-                    <text class="hand-label" x={hand.x + 8} y={hand.y + 13}>frets {hand.lo}–{hand.hi}</text>
                   </g>
                 )}
                 {opts.flow && segs.map((sg, i) => (
