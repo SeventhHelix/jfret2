@@ -1,19 +1,13 @@
 import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { barTicks, beatTicks, songEndTick } from '../model/song';
-import { DisplayEvent, RhythmValue, layoutBar } from '../notation/rhythm';
+import { GAP, PAD, STAFF_H, drawBar } from './tabDraw';
 import { cursor, editMode, grid, hotIds, loop, loopOn, placeCursor, playhead, playing, seek, selection, song } from '../state/store';
 
 const LEFT = 36;      // room for the "TAB" label
-const PAD = 12;       // inner padding per bar
-const GAP = 12;       // px between staff lines
 const TOP = 22;       // staff top within a row
-const STAFF_H = GAP * 5;
-const STEM_Y = 8;     // stems start this far below the staff
-const STEM_LEN = 24;
 const ROW_H = TOP + STAFF_H + 58;
 const MIN_BAR_W = 260;
-const REST_GLYPH = ['\u{1D13D}', '\u{1D13E}', '\u{1D13F}', '\u{1D140}']; // quarter, 8th, 16th, 32nd
 
 export function TabView() {
   const s = song.value;
@@ -116,65 +110,10 @@ export function TabView() {
   for (let b = 0; b < nBars; b++) {
     const y = rowTop(b);
     els.push(<text key={`n${b}`} class="tv-label" x={barLeft(b) + 3} y={y - 8}>{b === 0 ? `${s.timeSig.join('/')}  1` : b + 1}</text>);
-    const { events, rests } = layoutBar(s.notes, b * bar, bar, beat);
-    const stemTop = y + STAFF_H + STEM_Y;
-    const stemBottom = (v: RhythmValue) => stemTop + (v.stem === 'half' ? STEM_LEN / 2 : STEM_LEN);
-
-    for (const ev of events) {
-      const x = xIn(b, ev.start);
-      for (const id of ev.noteIds) {
-        const n = s.notes.find(nn => nn.id === id)!;
-        const cls = `tv-fret${hot.has(id) ? ' hot' : ''}${sel.has(id) ? ' sel' : ''}`;
-        els.push(<text key={`f${id}`} data-start={n.start} class={cls} x={x} y={y + n.string * GAP}>{n.fret}</text>);
-      }
-      if (ev.value.stem !== 'none') els.push(<line key={`st${b}-${ev.start}`} class="tv-stem" x1={x} x2={x} y1={stemTop} y2={stemBottom(ev.value)} />);
-      if (ev.value.dotted) els.push(<circle key={`d${b}-${ev.start}`} class="tv-dot" cx={x + 5} cy={stemBottom(ev.value) - 3} r={1.6} />);
-      if (ev.value.triplet && ev.beam === null) els.push(<text key={`tr${b}-${ev.start}`} class="tv-tuplet" x={x} y={stemBottom(ev.value) + 13}>3</text>);
-      if (ev.beam === null) {
-        for (let k = 0; k < ev.value.flags; k++) {
-          const fy = stemBottom(ev.value) - k * 5;
-          els.push(<line key={`fl${b}-${ev.start}-${k}`} class="tv-stem" x1={x} x2={x + 7} y1={fy} y2={fy - 6} />);
-        }
-      }
-    }
-
-    // Beams: level 1 spans the group; deeper levels join neighbours that share them, else a stub.
-    const groups = new Map<number, DisplayEvent[]>();
-    for (const ev of events) if (ev.beam !== null) groups.set(ev.beam, [...(groups.get(ev.beam) ?? []), ev]);
-    for (const [gid, g] of groups) {
-      const by = stemTop + STEM_LEN;
-      els.push(<line key={`bm${b}-${gid}`} class="tv-beam" x1={xIn(b, g[0].start)} x2={xIn(b, g[g.length - 1].start)} y1={by} y2={by} />);
-      if (g.every(ev => ev.value.triplet)) { // one "3" bracket per triplet group, like printed music
-        const xa = xIn(b, g[0].start), xb = xIn(b, g[g.length - 1].start), xm = (xa + xb) / 2;
-        els.push(<path key={`tb${b}-${gid}`} class="tv-bracket" d={`M${xa} ${by + 6} v4 H${xm - 6} M${xm + 6} ${by + 10} H${xb} v-4`} />);
-        els.push(<text key={`tt${b}-${gid}`} class="tv-tuplet" x={xm} y={by + 14}>3</text>);
-      }
-      for (let level = 2; level <= 3; level++) {
-        const ly = by - (level - 1) * 5;
-        g.forEach((ev, i) => {
-          if (ev.value.flags < level) return;
-          const x = xIn(b, ev.start);
-          const next = g[i + 1];
-          const prev = g[i - 1];
-          if (next && next.value.flags >= level) {
-            els.push(<line key={`bl${b}-${ev.start}-${level}`} class="tv-beam" x1={x} x2={xIn(b, next.start)} y1={ly} y2={ly} />);
-          } else if (!(prev && prev.value.flags >= level)) {
-            const dir = next ? 1 : -1;
-            els.push(<line key={`bs${b}-${ev.start}-${level}`} class="tv-beam" x1={x} x2={x + dir * 7} y1={ly} y2={ly} />);
-          }
-        });
-      }
-    }
-
-    for (const r of rests) {
-      const x = xIn(b, r.start) + 4;
-      const ry = y + STAFF_H + 24;
-      if (r.value.ticks >= 48) {
-        els.push(<rect key={`r${b}-${r.start}`} class="tv-restbar" x={x - 5} y={ry - (r.value.ticks >= 96 ? 8 : 4)} width={10} height={4} />);
-      } else {
-        els.push(<text key={`r${b}-${r.start}`} class="tv-rest" x={x} y={ry}>{REST_GLYPH[Math.min(r.value.flags, 3)]}</text>);
-      }
-    }
+    els.push(...drawBar({
+      notes: s.notes, start: b * bar, len: bar, beat, x0: barLeft(b), w: barW, y, key: String(b),
+      fretClass: n => `${hot.has(n.id) ? ' hot' : ''}${sel.has(n.id) ? ' sel' : ''}`,
+    }));
   }
 
   const lp = loopOn.value ? loop.value : null;

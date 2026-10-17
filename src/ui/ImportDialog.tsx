@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { TUNINGS } from '../model/song';
 import { GpScore, barCounts, describeFit, extractSection, fitTuning, sections } from '../import/gpScore';
 import { importFile, importSong } from '../state/store';
+import { GpTabPreview } from './GpTabPreview';
 
 export const GP_ACCEPT = '.gp,.gpx,.gp3,.gp4,.gp5';
 export const isGpFile = (f: File) => /\.(gp|gpx|gp[345])$/i.test(f.name);
@@ -23,7 +24,6 @@ export function ImportDialog({ file }: { file: File }) {
   const [track, setTrack] = useState(0);
   const [range, setRange] = useState<Range>({ first: 0, last: 0 });
   const anchor = useRef(0);
-  const dragging = useRef(false);
   const close = () => { importFile.value = null; };
 
   useEffect(() => {
@@ -51,25 +51,16 @@ export function ImportDialog({ file }: { file: File }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    const onUp = () => { dragging.current = false; };
     window.addEventListener('keydown', onKey);
-    window.addEventListener('pointerup', onUp);
-    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('pointerup', onUp); };
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   const secs = useMemo(() => (score ? sections(score) : []), [score]);
-  const counts = useMemo(() => (score ? barCounts(score.tracks[track], score.bars.length) : []), [score, track]);
   const result = useMemo(() => (score ? extractSection(score, track, range.first, range.last) : null), [score, track, range]);
-  const maxCount = Math.max(1, ...counts);
-  const secAt = new Map(secs.map(s => [s.first, s.name]));
 
   const pick = (i: number, extend: boolean) => {
     if (!extend) anchor.current = i;
     setRange({ first: Math.min(anchor.current, i), last: Math.max(anchor.current, i) });
-  };
-  const barAt = (x: number, y: number) => {
-    const el = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-bar]');
-    return el ? Number(el.dataset.bar) : null;
   };
   const setBound = (k: keyof Range, v: string) => {
     if (!score) return;
@@ -119,24 +110,11 @@ export function ImportDialog({ file }: { file: File }) {
                   ))}
                 </div>
               )}
-              <div class="gp-bars" onPointerMove={e => { if (!dragging.current) return; const i = barAt(e.clientX, e.clientY); if (i !== null) pick(i, true); }}>
-                {counts.map((c, i) => (
-                  <div key={i} data-bar={i}
-                    class={`gp-bar${i >= range.first && i <= range.last ? ' on' : ''}${secAt.has(i) ? ' sec' : ''}`}
-                    style={{ '--d': c / maxCount } as any}
-                    title={`Bar ${i + 1}${secAt.has(i) ? ` · ${secAt.get(i)}` : ''} · ${c} note${c === 1 ? '' : 's'}`}
-                    onPointerDown={e => {
-                      e.preventDefault();
-                      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-                      dragging.current = true;
-                      pick(i, e.shiftKey);
-                    }} />
-                ))}
-              </div>
+              <GpTabPreview score={score} track={track} range={range} onPick={pick} />
               <div class="gp-range">
                 <label>Bars <input type="number" min={1} max={score.bars.length} value={range.first + 1} onChange={e => setBound('first', e.currentTarget.value)} /></label>
                 <label>to <input type="number" min={1} max={score.bars.length} value={range.last + 1} onChange={e => setBound('last', e.currentTarget.value)} /></label>
-                <span class="muted">of {score.bars.length} · click a bar, shift-click or drag to extend</span>
+                <span class="muted">of {score.bars.length} · click a bar in the tab, shift-click or drag to extend</span>
               </div>
             </section>
 

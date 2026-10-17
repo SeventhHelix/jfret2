@@ -213,7 +213,7 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 
 /* Guitar Pro import dialog */
 .modal-back { position: fixed; inset: 0; z-index: 50; background: #000a; display: flex; align-items: center; justify-content: center; padding: 16px; }
-.modal { width: 760px; max-width: 100%; max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 16px 40px #000c; }
+.modal { width: 1100px; max-width: 100%; max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 16px 40px #000c; }
 .modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .modal-head b { font-size: 16px; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 8px; }
@@ -229,12 +229,14 @@ button:disabled { opacity: 0.45; cursor: default; }
 .gp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .gp-chips button { font-size: 12px; padding: 3px 9px; }
 .gp-chips button.on .muted { color: #fffc; }
-.gp-bars { display: flex; flex-wrap: wrap; gap: 2px; user-select: none; touch-action: none; }
-.gp-bar { width: 13px; height: 26px; border-radius: 3px; cursor: pointer; background: rgb(91 124 250 / calc(0.07 + var(--d) * 0.75)); }
-.gp-bar.sec { box-shadow: inset 2px 0 0 var(--text); }
-.gp-bar.on { background: rgb(255 176 32 / calc(0.3 + var(--d) * 0.7)); outline: 1px solid var(--accent); }
 .gp-range { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; }
 .gp-range input { width: 64px; }
 .gp-range .muted { font-size: 12px; }
 .gp-summary { margin: 0; font-weight: 600; }
 .gp-warn { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+.gp-tab { max-height: 52vh; overflow-y: auto; overflow-x: hidden; margin-top: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.gp-tab svg { display: block; user-select: none; touch-action: pan-y; }
+.gp-tab-hit { fill: transparent; cursor: pointer; }
+.gp-tab-hit:hover { fill: #ffffff08; }
+.gp-tab-sel { fill: #ffb0201f; }
+.gp-tab-sec { fill: var(--accent); font-size: 11px; font-weight: 700; }

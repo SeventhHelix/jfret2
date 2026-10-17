@@ -51,7 +51,8 @@ src/state/store.ts     single signals store: song, selection, cursor, playhead, 
                        options, actions (insertNote, toggleLoop, paste...), persistence
 src/ui/*.tsx           App, Transport (sticky header), TabView (SVG tab), Fretboard (neck + overlays),
                        TabRoll (timeline editor), Toolbar (note length + rhythm tools), ImportDialog (GP track +
-                       bar range picker), keyboard.ts, colors.ts
+                       section picker) + GpTabPreview (whole track as tab, click/drag bars), tabDraw (one bar of
+                       tab as SVG, shared by TabView and GpTabPreview), keyboard.ts, colors.ts
 ```
 
 UI components read signals and call store actions; they never mutate the song directly. Drags update `song.value` live from a snapshot and record one undo step with `commitFrom(orig)`.
