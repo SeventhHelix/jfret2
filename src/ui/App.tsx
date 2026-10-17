@@ -1,15 +1,37 @@
+import { useEffect } from 'preact/hooks';
 import { Transport } from './Transport';
 import { Fretboard } from './Fretboard';
 import { TabView } from './TabView';
 import { Toolbar } from './Toolbar';
 import { TabRoll } from './TabRoll';
 import { useKeyboard } from './keyboard';
-import { editMode, errorMsg } from '../state/store';
+import { ImportDialog, isGpFile } from './ImportDialog';
+import { editMode, errorMsg, importFile } from '../state/store';
+
+/** Dropping a Guitar Pro file anywhere on the page opens the import dialog. */
+function useFileDrop() {
+  useEffect(() => {
+    const hasFile = (e: DragEvent) => [...(e.dataTransfer?.types ?? [])].includes('Files');
+    const over = (e: DragEvent) => { if (hasFile(e)) e.preventDefault(); };
+    const drop = (e: DragEvent) => {
+      const f = e.dataTransfer?.files[0];
+      if (!f) return;
+      e.preventDefault();
+      if (isGpFile(f)) importFile.value = f;
+      else errorMsg.value = `Can't import ${f.name}: only Guitar Pro files (.gp, .gpx, .gp3, .gp4, .gp5).`;
+    };
+    window.addEventListener('dragover', over);
+    window.addEventListener('drop', drop);
+    return () => { window.removeEventListener('dragover', over); window.removeEventListener('drop', drop); };
+  }, []);
+}
 
 export function App() {
   useKeyboard();
+  useFileDrop();
   return (
     <div class="app">
+      {importFile.value && <ImportDialog file={importFile.value} />}
       {errorMsg.value && <div class="error" onClick={() => { errorMsg.value = null; }}>{errorMsg.value} (click to dismiss)</div>}
       <Transport />
       <TabView />
@@ -32,6 +54,7 @@ export function App() {
             <span><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy, paste at cursor</span>
             <span><kbd>Backspace</kbd> remove the note you just entered</span>
             <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</span>
+            <span>Drop a Guitar Pro file on the page (or <b>Import…</b>) to bring in part of a song</span>
           </p>
         </>
       )}

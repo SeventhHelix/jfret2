@@ -268,6 +268,26 @@ export function newSong() {
   });
 }
 
+// ---- Guitar Pro import ----
+/** The file the import dialog is showing, or null when it's closed. */
+export const importFile = signal<File | null>(null);
+
+/** Replace the riff with an imported section (one undo step). */
+export function importSong(next: Song) {
+  player.pause();
+  playing.value = false;
+  batch(() => {
+    commit(next);
+    selection.value = new Set();
+    cursor.value = songEndTick(next);
+    loop.value = null;
+    loopOn.value = false;
+    feel.clear();
+    playhead.value = 0;
+    importFile.value = null;
+  });
+}
+
 // ---- derived view state for highlighting ----
 const idSet = (notes: { id: number }[]) => new Set(notes.map(n => n.id));
 

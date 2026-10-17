@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { Song, TUNINGS, TUNING_IDS, TuningId } from '../model/song';
+import { GP_ACCEPT } from './ImportDialog';
 import {
-  commit, countIn, editMode, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
+  commit, countIn, editMode, importFile, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
   shareUrl, song, speed, togglePlay, undo,
 } from '../state/store';
 
 export function Transport() {
   const s = song.value;
   const [copied, setCopied] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(s.title);
   useEffect(() => setTitle(s.title), [s.title]);
   const [bpm, setBpm] = useState(String(s.bpm));
@@ -62,7 +64,7 @@ export function Transport() {
           </label>
           <select value={s.timeSig.join('/')} title="Time signature"
             onChange={e => { setMeta({ timeSig: e.currentTarget.value.split('/').map(Number) as [number, number] }); e.currentTarget.blur(); }}>
-            {['4/4', '3/4', '6/8'].map(t => <option key={t} value={t}>{t}</option>)}
+            {[...new Set(['4/4', '3/4', '6/8', s.timeSig.join('/')])].map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select value={s.tuning} title="Tuning" onChange={e => { setMeta({ tuning: e.currentTarget.value as TuningId }); e.currentTarget.blur(); }}>
             {TUNING_IDS.map(id => <option key={id} value={id}>{TUNINGS[id].name}</option>)}
@@ -72,6 +74,9 @@ export function Transport() {
             <button onClick={undo} title="Undo (Ctrl+Z)">↶ Undo</button>
             <button onClick={redo} title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
           </div>
+          <button onClick={() => fileRef.current?.click()} title="Import part of a Guitar Pro file (or drop the file on the page)">Import…</button>
+          <input ref={fileRef} type="file" accept={GP_ACCEPT} hidden
+            onChange={e => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) importFile.value = f; }} />
           <button onClick={newSong}>New riff</button>
         </div>
       )}

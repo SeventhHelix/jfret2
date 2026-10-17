@@ -41,6 +41,8 @@ src/model/ops.ts       pure edit ops: add/move/resize/quantize/applyFeel/evenOut
 src/model/history.ts   undo/redo snapshots
 src/model/theory.ts    scales/modes, intervals, root guess
 src/model/flow.ts      flow path grouping modes (beat/strings/contour/arc) -> which links are dotted
+src/import/gpScore.ts  Guitar Pro import, pure: plain score types, sections, tuning fit, extractSection -> Song + warnings
+src/import/gpRead.ts   Guitar Pro import, alphaTab: file bytes -> GpScore (alphaTab is lazy-loaded, ~1.2 MB chunk)
 src/codec/codec.ts     Song <-> base64url binary payload (version byte, varints, string<<5|fret)
 src/notation/rhythm.ts duration -> display value, per-bar layout, rests, beaming, triplets
 src/audio/synth.ts     Karplus-Strong pluck (allpass-tuned) + metronome click
@@ -48,7 +50,8 @@ src/audio/player.ts    lookahead scheduler (25 ms timer, 120 ms horizon), loop, 
 src/state/store.ts     single signals store: song, selection, cursor, playhead, transport, view/guide
                        options, actions (insertNote, toggleLoop, paste...), persistence
 src/ui/*.tsx           App, Transport (sticky header), TabView (SVG tab), Fretboard (neck + overlays),
-                       TabRoll (timeline editor), Toolbar (note length + rhythm tools), keyboard.ts, colors.ts
+                       TabRoll (timeline editor), Toolbar (note length + rhythm tools), ImportDialog (GP track +
+                       bar range picker), keyboard.ts, colors.ts
 ```
 
 UI components read signals and call store actions; they never mutate the song directly. Drags update `song.value` live from a snapshot and record one undo step with `commitFrom(orig)`.
@@ -68,3 +71,5 @@ UI components read signals and call store actions; they never mutate the song di
 - Vite HMR can cache a half-written module when a file is edited in several quick steps (e.g. multiple `sed` passes). Symptoms: "does not provide an export named ..." in the console while `tsc` passes. Fix: restart the dev server (`preview_stop` / `preview_start`).
 - The in-app browser pane often stops drawing when not visible: screenshots time out, `requestAnimationFrame` and smooth scrolling pause. Prefer `javascript_tool` checks. It also strips `#s=` fragments on navigation; load a riff with `location.hash = 's=...'` instead.
 - Synthetic `PointerEvent`s work for fretboard clicks. Audio needs a real user gesture before the AudioContext runs.
+- Guitar Pro import goes through alphaTab's `ScoreLoader` only (no rendering). alphaTab: 960 ticks/quarter (÷40 for jFret), `note.string` 1 = lowest string, `staff.tuning` high to low. Tests build real .gp files with `AlphaTexImporter` + `Gp7Exporter`, so no binary fixtures are checked in.
+- The jFret production build can be checked with the `jfret-prod` launch config (`vite preview`, port 4173) after `npm run build`.
