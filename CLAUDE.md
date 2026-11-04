@@ -45,7 +45,8 @@ src/import/gpScore.ts  Guitar Pro import, pure: plain score types, sections, tun
 src/import/gpRead.ts   Guitar Pro import, alphaTab: file bytes -> GpScore (alphaTab is lazy-loaded, ~1.2 MB chunk)
 src/codec/codec.ts     Song <-> base64url binary payload (version byte, varints, string<<5|fret)
 src/notation/rhythm.ts duration -> display value, per-bar layout, rests, beaming, triplets
-src/audio/synth.ts     Karplus-Strong pluck (allpass-tuned) + metronome click
+src/audio/synth.ts     instruments (Karplus-Strong plucks with per-instrument tone, overdrive chain, saw synth),
+                       metronome sounds, separate guitar/metronome volume buses (settings: store `sound`)
 src/audio/player.ts    lookahead scheduler (25 ms timer, 120 ms horizon), loop, speed, count-in
 src/state/store.ts     single signals store: song, selection, cursor, playhead, transport, view/guide
                        options, actions (insertNote, toggleLoop, paste...), persistence
@@ -62,7 +63,7 @@ UI components read signals and call store actions; they never mutate the song di
 - **Time is ticks, PPQ = 24.** Quarter 24, 8th 12, 16th 6, 32nd 3, 8th triplet 8, 16th triplet 4. Dotted 32nd can't be represented.
 - **One note per string at a time.** `normalizeNotes` drops same-string same-start duplicates (preferring the ids being operated on) and cuts a ringing note short when the next note on its string starts. Quantize steps around occupied slots instead of stacking.
 - **Share link format is versioned** (`VERSION` in codec). Changing note fields needs a new version and backward-compatible decode. Decode validates everything and clamps to `MAX_TICKS`; corrupt links show an error banner, never crash.
-- Per-viewer preferences (Display options, scale guide) live in localStorage, **not** in the share link. The last riff autosaves to localStorage; the URL updates via debounced `replaceState`.
+- Per-viewer preferences (Display options, scale guide, Sound menu) live in localStorage, **not** in the share link. The last riff autosaves to localStorage; the URL updates via debounced `replaceState`.
 - A link opens in Practice mode unless it equals your own last-saved riff.
 - Insert cursor goes AT a clicked note; inserting there ripples later notes. Shift-click on the neck stacks a chord onto the previous insert.
 - Keyboard shortcuts live in `ui/keyboard.ts` (Space, L, 1-6, ., T, Ctrl+Z/Y/C/X/V/D, Alt+arrows, Backspace). Keep the hint line in `App.tsx` in sync.

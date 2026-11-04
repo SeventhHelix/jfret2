@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Song, TUNINGS, TUNING_IDS, TuningId } from '../model/song';
 import { GP_ACCEPT } from './ImportDialog';
+import { SoundMenu } from './SoundMenu';
 import {
   commit, countIn, editMode, importFile, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
   shareUrl, song, speed, togglePlay, undo,
@@ -46,6 +47,7 @@ export function Transport() {
           <button class={metronome.value ? 'on' : ''} onClick={() => { metronome.value = !metronome.value; }} title="Metronome click">Click</button>
           <button class={countIn.value ? 'on' : ''} onClick={() => { countIn.value = !countIn.value; }}>Count-in</button>
         </div>
+        <SoundMenu />
         <span class="spacer" />
         <button onClick={copy} title="Copy a link to this riff">{copied ? '✓ Copied' : 'Share'}</button>
         <div class="seg" role="group" aria-label="Mode">

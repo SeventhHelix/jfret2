@@ -6,6 +6,7 @@ import { History } from '../model/history';
 import type { FlowGrouping } from '../model/flow';
 import { decodeSong, encodeSong } from '../codec/codec';
 import { Player } from '../audio/player';
+import { CLICK_SOUNDS, DEFAULT_SOUND, INSTRUMENTS, SoundSettings, setSound } from '../audio/synth';
 
 export type Loop = { start: number; end: number };
 export type FretMode = 'live' | 'bar';
@@ -47,6 +48,25 @@ export type ColourRange = 'riff' | 'bar' | 'neck';
 export type ViewOpts = {
   lookAhead: boolean; nextRing: boolean; motion: boolean; colour: boolean; colourRange: ColourRange; flow: boolean; flowGrouping: FlowGrouping; hand: boolean;
 };
+// Sound (instrument, metronome sound, volumes): per-viewer, kept in localStorage.
+const SOUND_KEY = 'jfret:sound';
+function loadSound(): SoundSettings {
+  try {
+    const s = { ...DEFAULT_SOUND, ...JSON.parse(localStorage.getItem(SOUND_KEY) ?? '{}') };
+    if (!INSTRUMENTS.some(i => i.id === s.instrument)) s.instrument = DEFAULT_SOUND.instrument;
+    if (!CLICK_SOUNDS.some(c => c.id === s.click)) s.click = DEFAULT_SOUND.click;
+    return s;
+  } catch { return DEFAULT_SOUND; }
+}
+export const sound = signal<SoundSettings>(loadSound());
+effect(() => {
+  setSound(sound.value);
+  try { localStorage.setItem(SOUND_KEY, JSON.stringify(sound.value)); } catch { /* ignore */ }
+});
+export function setSoundOpts(patch: Partial<SoundSettings>) {
+  sound.value = { ...sound.value, ...patch };
+}
+
 const VIEW_KEY = 'jfret:view';
 function loadView(): ViewOpts {
   const defaults: ViewOpts = { lookAhead: true, nextRing: true, motion: true, colour: true, colourRange: 'riff', flow: true, flowGrouping: 'none', hand: false };

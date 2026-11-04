@@ -240,3 +240,12 @@ button:disabled { opacity: 0.45; cursor: default; }
 .gp-tab-hit:hover { fill: #ffffff08; }
 .gp-tab-sel { fill: #ffb0201f; }
 .gp-tab-sec { fill: var(--accent); font-size: 11px; font-weight: 700; }
+
+/* Sound menu (header) */
+.opts.sound summary { font-size: 13px; padding: 4px 10px; border-radius: 6px; }
+.opts.sound .opts-pop { width: 280px; left: 0; right: auto; }
+.snd-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.snd-row select { min-width: 150px; }
+.opts-pop label.snd-vol { align-items: center; padding-left: 2px; }
+.snd-vol input[type=range] { flex: 1; margin: 0; }
+.snd-val { width: 26px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
