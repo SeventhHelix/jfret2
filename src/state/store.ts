@@ -136,7 +136,7 @@ export function deleteBeforeCursor() {
   commit(deleteNotes(song.value, new Set([victim.id])));
   if (!song.value.notes.some(n => n.start === at)) {
     cursor.value = at;
-    lastInsertStart = null;
+    lastInsertStart.value = null;
     if (!playing.value) playhead.value = at;
   }
 }
@@ -223,12 +223,12 @@ export function previewNote(string: number, fret: number) {
 }
 
 // Start tick of the last fretboard insert, so Shift-click can stack a chord onto it.
-let lastInsertStart: number | null = null;
+const lastInsertStart = signal<number | null>(null);
 
 /** Put the insert cursor AT a tick: the next fret click lands there, pushing any note already there later. */
 export function placeCursor(tick: number) {
   cursor.value = Math.max(0, Math.round(tick));
-  lastInsertStart = null;
+  lastInsertStart.value = null;
   if (!playing.value) seek(cursor.value);
 }
 
@@ -241,8 +241,8 @@ export function placeCursor(tick: number) {
  */
 export function insertNote(string: number, fret: number, stack = false) {
   const s0 = song.value;
-  if (stack && lastInsertStart !== null) {
-    const start = lastInsertStart;
+  if (stack && lastInsertStart.value !== null) {
+    const start = lastInsertStart.value;
     const partner = s0.notes.find(n => n.start === start);
     const clash = s0.notes.find(n => n.start === start && n.string === string);
     const base = clash ? deleteNotes(s0, new Set([clash.id])) : s0;
@@ -263,7 +263,7 @@ export function insertNote(string: number, fret: number, stack = false) {
   const { song: next, id } = addNote(base, { start, dur, string, fret });
   if (lastClick && now - lastClick < PHRASE_GAP_MS) feel.set(id, now - lastClick);
   lastClick = now;
-  lastInsertStart = start;
+  lastInsertStart.value = start;
   batch(() => {
     commit(next);
     cursor.value = start + dur;
@@ -511,7 +511,7 @@ export function selectBar(b: number) {
   const bar = barTicks(song.value.timeSig);
   selection.value = new Set(notesInRange(song.value.notes, b * bar, (b + 1) * bar).map(n => n.id));
   cursor.value = b * bar;
-  lastInsertStart = null;
+  lastInsertStart.value = null;
   if (!playing.value) seek(b * bar);
 }
 
@@ -533,3 +533,16 @@ export const guideRoot = computed(() => guide.value.root ?? guessRoot(song.value
 /** Pitch classes of the guide scale. "Notes in this riff" uses exactly the riff's notes. */
 export const guideScale = computed(() =>
   guide.value.scale === 'song' ? songPitchClasses(song.value) : scalePitchClasses(guideRoot.value, SCALES[guide.value.scale]));
+
+// ---- playing techniques ----
+/** Notes the technique buttons act on: the selection, else the note just entered, else the note at the insert cursor. */
+export const techIds = computed<Set<number>>(() => {
+  if (selection.value.size) return selection.value;
+  const at = lastInsertStart.value ?? cursor.value;
+  return new Set(song.value.notes.filter(n => n.start === at).map(n => n.id));
+});
+
+export function applyTech(f: (s: Song, ids: Set<number>) => Song) {
+  const ids = techIds.value;
+  if (ids.size) commit(f(song.value, ids));
+}

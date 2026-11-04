@@ -4,7 +4,7 @@ import { GpBar, GpNote, GpScore, GpTrack, barCounts, extractSection, fitTuning, 
 const STD = [64, 59, 55, 50, 45, 40];
 const bar = (i: number, extra: Partial<GpBar> = {}): GpBar => ({ start: i * 96, num: 4, den: 4, tempo: 120, repeat: false, ...extra });
 const note = (bar: number, at: number, string: number, fret: number, extra: Partial<GpNote> = {}): GpNote =>
-  ({ bar, start: bar * 96 + at, dur: 12, string, fret, tie: false, fx: [], ...extra });
+  ({ bar, start: bar * 96 + at, dur: 12, string, fret, tie: false, ...extra });
 const track = (notes: GpNote[], extra: Partial<GpTrack> = {}): GpTrack => ({ name: 'Lead', tuning: STD, capo: 0, notes, ...extra });
 const score = (tracks: GpTrack[], bars = [bar(0), bar(1), bar(2), bar(3)]): GpScore => ({ title: 'Song', artist: 'Band', bars, tracks });
 const strip = (s: { start: number; dur: number; string: number; fret: number }[]) => s.map(({ start, dur, string, fret }) => ({ start, dur, string, fret }));
@@ -16,7 +16,7 @@ describe('sections / barCounts', () => {
   });
 
   it('counts notes per bar, not grace notes', () => {
-    const t = track([note(0, 0, 0, 5), note(0, 12, 0, 7), note(2, 0, 1, 5), note(2, 6, 1, 4, { fx: ['grace'] })]);
+    const t = track([note(0, 0, 0, 5), note(0, 12, 0, 7), note(2, 0, 1, 5), note(2, 6, 1, 4, { grace: true })]);
     expect(barCounts(t, 4)).toEqual([2, 0, 1, 0]);
   });
 });
@@ -79,12 +79,19 @@ describe('extractSection', () => {
     expect(strip(r.song.notes)).toEqual([{ start: 0, dur: 24, string: 2, fret: 7 }]);
   });
 
-  it('drops dead and grace notes, counts techniques', () => {
-    const t = track([note(0, 0, 0, 5, { fx: ['dead'] }), note(0, 6, 0, 4, { fx: ['grace'] }), note(0, 12, 0, 7, { fx: ['bend', 'vibrato'] }), note(0, 24, 0, 9, { fx: ['bend'] })]);
+  it('keeps techniques (dead notes included), drops grace notes', () => {
+    const t = track([
+      note(0, 0, 0, 5, { tech: { dead: true } }), note(0, 6, 0, 4, { grace: true }),
+      note(0, 12, 0, 7, { tech: { bend: 2, release: true, vibrato: true } }), note(0, 24, 0, 9, { tech: { legato: true, mute: true } }),
+    ]);
     const r = extractSection(score([t]), 0, 0, 0);
-    expect(r.noteCount).toBe(2);
-    expect(r.warnings).toContain('2 dead or grace notes left out.');
-    expect(r.warnings).toContain("Played as plain notes (jFret doesn't show techniques yet): 2 bends, 1 vibrato.");
+    expect(r.song.notes.map(n => n.tech)).toEqual([{ dead: true }, { bend: 2, release: true, vibrato: true }, { legato: true, mute: true }]);
+    expect(r.warnings).toEqual(['1 grace note left out.']);
+  });
+
+  it('vibrato on the tied part of a note goes onto the merged note', () => {
+    const r = extractSection(score([track([note(0, 72, 2, 7, { dur: 24 }), note(1, 0, 2, 7, { dur: 24, tie: true, tech: { vibrato: true } })])]), 0, 0, 1);
+    expect(r.song.notes.map(n => [n.dur, n.tech])).toEqual([[48, { vibrato: true }]]);
   });
 
   it('rounds rhythms jFret cannot show and says so', () => {
@@ -136,12 +143,5 @@ describe('extractSection', () => {
       { start: 0, dur: 12, string: 0, fret: 5 },
       { start: 12, dur: 12, string: 0, fret: 7 },
     ]);
-  });
-});
-
-describe('technique wording', () => {
-  it('uses singular for one', () => {
-    const r = extractSection(score([track([note(0, 0, 0, 5, { fx: ['bend', 'legato'] })])]), 0, 0, 0);
-    expect(r.warnings).toContain("Played as plain notes (jFret doesn't show techniques yet): 1 bend, 1 hammer-on/pull-off.");
   });
 });

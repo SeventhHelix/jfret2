@@ -1,6 +1,7 @@
 // Guitar Pro import, the alphaTab half: read a .gp/.gpx/.gp3-5 file into the plain GpScore types.
 // alphaTab is big (~1 MB), so it's only loaded when a file is opened.
-import type { Fx, GpBar, GpNote, GpScore, GpTrack } from './gpScore';
+import type { GpBar, GpNote, GpScore, GpTrack } from './gpScore';
+import type { Tech } from '../model/song';
 
 const AT_PER_TICK = 960 / 24; // alphaTab ticks per jFret tick
 
@@ -38,15 +39,22 @@ export async function readScoreFile(bytes: Uint8Array): Promise<GpScore> {
         if (beat.isRest) continue;
         for (const n of beat.notes) {
           if (n.string < 1 || n.string > tuning.length || n.fret < 0) continue;
-          const fx: Fx[] = [];
-          if (n.isDead) fx.push('dead');
-          if (beat.graceType !== 0) fx.push('grace');
-          if (n.hasBend) fx.push('bend');
-          if (n.slideInType !== 0 || n.slideOutType !== 0) fx.push('slide');
-          if (n.isHammerPullOrigin || n.isHammerPullDestination || n.isLeftHandTapped) fx.push('legato');
-          if (n.vibrato !== 0 || beat.vibrato !== 0) fx.push('vibrato');
-          if (n.harmonicType !== 0) fx.push('harmonic');
-          if (n.isPalmMute) fx.push('mute');
+          const tech: Tech = {};
+          if (n.hasBend && n.bendPoints?.length) {
+            // Bend points are in quarter tones: 4 = a full bend (2 semitones).
+            const vals = n.bendPoints.map(p => p.value);
+            const peak = Math.max(...vals);
+            if (peak > 0) {
+              tech.bend = Math.min(4, Math.max(1, Math.round(peak / 2)));
+              if (vals[vals.length - 1] < peak - 1) tech.release = true;
+            }
+          }
+          if (n.vibrato !== 0 || beat.vibrato !== 0) tech.vibrato = true;
+          if (n.slideOutType !== 0) tech.slide = true; // slide into the next note (or off, when there is none)
+          if (n.isHammerPullDestination || n.isLeftHandTapped) tech.legato = true;
+          if (n.isPalmMute) tech.mute = true;
+          if (n.harmonicType !== 0) tech.harmonic = true;
+          if (n.isDead) tech.dead = true;
           notes.push({
             bar: b.index,
             start: (mb.start + beat.playbackStart) / AT_PER_TICK,
@@ -54,7 +62,8 @@ export async function readScoreFile(bytes: Uint8Array): Promise<GpScore> {
             string: tuning.length - n.string, // alphaTab counts from the lowest string
             fret: n.fret,
             tie: n.isTieDestination,
-            fx,
+            tech: Object.keys(tech).length ? tech : undefined,
+            grace: beat.graceType !== 0 || undefined,
           });
         }
       }

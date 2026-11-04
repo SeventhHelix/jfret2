@@ -44,16 +44,38 @@ describe('readScoreFile (GP7 round trip)', async () => {
     expect(notes.slice(8)).toEqual([[96, 48, 2, 7], [144, 8, 2, 3], [152, 8, 2, 3], [160, 8, 2, 3], [168, 24, 1, 9]]);
     expect(solo.song.title).toBe('Test Song · Solo');
     expect(solo.warnings.some(w => w.includes('120 → 140'))).toBe(true);
-    expect(solo.warnings.some(w => w.includes('hammer-ons'))).toBe(true);
   });
 
-  it('flags bends', () => {
-    expect(score.tracks[0].notes.filter(n => n.fx.includes('bend'))).toHaveLength(1);
+  it('reads techniques: bend amount, hammer-on destination', () => {
+    const lead = score.tracks[0].notes;
+    expect(lead.filter(n => n.tech?.bend).map(n => n.tech)).toEqual([{ bend: 2 }]); // intro 5.5 full bend
+    expect(lead.find(n => n.bar === 1 && n.fret === 17)?.tech).toEqual({ legato: true }); // 15h17
   });
 
   it('puts the bass on the low 4 strings', () => {
     const r = extractSection(score, 1, 0, 2);
     expect(r.song.tuning).toBe('std');
     expect(r.song.notes.map(n => [n.string, n.fret])).toEqual([[5, 0], [5, 3], [4, 5]]);
+  });
+});
+
+// Every technique, in alphaTex: bend+release, vibrato, slide, hammer-on, palm mute, natural harmonic, dead note.
+const TECH_TEX = String.raw`\title "Tech" \tempo 100
+\track "Lead"
+7.3{b (0 4 0)}.4 7.3{v}.4 5.2{sl}.8 7.2.8 5.1{h}.8 7.1.8 |
+0.6{pm}.8 0.6{pm}.8 12.3{nh}.4 x.4.4 3.4.4 |`;
+
+describe('readScoreFile: techniques', async () => {
+  const imp = new at.importer.AlphaTexImporter();
+  imp.initFromString(TECH_TEX, new at.Settings());
+  const score = await readScoreFile(new at.exporter.Gp7Exporter().export(imp.readScore(), new at.Settings()));
+
+  it('maps every technique', () => {
+    const r = extractSection(score, 0, 0, 1);
+    expect(r.song.notes.map(n => [n.fret, n.tech])).toEqual([
+      [7, { bend: 2, release: true }], [7, { vibrato: true }], [5, { slide: true }], [7, undefined], [5, undefined], [7, { legato: true }],
+      [0, { mute: true }], [0, { mute: true }], [12, { harmonic: true }], [0, { dead: true }], [3, undefined],
+    ]);
+    expect(r.warnings).toEqual([]);
   });
 });

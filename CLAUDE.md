@@ -41,9 +41,12 @@ src/model/ops.ts       pure edit ops: add/move/resize/quantize/applyFeel/evenOut
 src/model/history.ts   undo/redo snapshots
 src/model/theory.ts    scales/modes, intervals, root guess
 src/model/flow.ts      flow path grouping modes (beat/strings/contour/arc) -> which links are dotted
+src/model/tech.ts      playing techniques (Note.tech: bend/release/vibrato/slide/legato/mute/harmonic/dead): toggles,
+                       neighbours on a string, harmonic pitch, short marks
 src/import/gpScore.ts  Guitar Pro import, pure: plain score types, sections, tuning fit, extractSection -> Song + warnings
 src/import/gpRead.ts   Guitar Pro import, alphaTab: file bytes -> GpScore (alphaTab is lazy-loaded, ~1.2 MB chunk)
-src/codec/codec.ts     Song <-> base64url binary payload (version byte, varints, string<<5|fret)
+src/codec/codec.ts     Song <-> base64url binary payload (version byte, varints, string<<5|fret). v2: dur*2+hasTech,
+                       then a technique flags byte (+ bend byte) only for notes that have one; v1 still decodes
 src/notation/rhythm.ts duration -> display value, per-bar layout, rests, beaming, triplets
 src/audio/synth.ts     instruments (Karplus-Strong plucks with per-instrument tone, overdrive chain, saw synth),
                        metronome sounds, separate guitar/metronome volume buses (settings: store `sound`)
@@ -66,7 +69,7 @@ UI components read signals and call store actions; they never mutate the song di
 - Per-viewer preferences (Display options, scale guide, Sound menu) live in localStorage, **not** in the share link. The last riff autosaves to localStorage; the URL updates via debounced `replaceState`.
 - A link opens in Practice mode unless it equals your own last-saved riff.
 - Insert cursor goes AT a clicked note; inserting there ripples later notes. Shift-click on the neck stacks a chord onto the previous insert.
-- Keyboard shortcuts live in `ui/keyboard.ts` (Space, L, 1-6, ., T, Ctrl+Z/Y/C/X/V/D, Alt+arrows, Backspace). Keep the hint line in `App.tsx` in sync.
+- Keyboard shortcuts live in `ui/keyboard.ts` (Space, L, 1-6, ., T, B/R/V/S/H/M/N/X techniques, Ctrl+Z/Y/C/X/V/D, Alt+arrows, Backspace). Keep the hint line in `App.tsx` in sync.
 
 ## Dev environment quirks
 

@@ -7,6 +7,7 @@ import {
   selection, song, view,
 } from '../state/store';
 import { pc } from '../model/theory';
+import { techMarks } from '../model/tech';
 import { noteHue } from './colors';
 
 const PX = 4;    // pixels per tick (quarter note = 96 px)
@@ -183,7 +184,8 @@ export function TabRoll() {
                   left: n.start * PX, top: n.string * LANE + 3, width: Math.max(6, n.dur * PX - 1), height: LANE - 6,
                   '--h': hueOf(n),
                 } as JSX.CSSProperties}>
-                <span class="rn-fret">{n.fret}</span>
+                <span class="rn-fret">{n.tech?.dead ? 'x' : n.fret}</span>
+                {techMarks(n.tech) && <span class="rn-tech">{techMarks(n.tech)}</span>}
                 {/* where this fret sits within the bar's lowest..highest fret: the hand shape, without decoding numbers */}
                 <i class="rn-pos" style={{ left: `${posInBar(n)}%` }} />
               </div>

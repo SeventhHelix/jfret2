@@ -90,3 +90,39 @@ describe('codec hardening', () => {
     expect(d.notes.map(n => n.string)).toEqual([1, 3]);
   });
 });
+
+describe('codec: techniques (version 2)', () => {
+  it('round-trips every technique', () => {
+    const s = mk([
+      { start: 0, dur: 12, string: 0, fret: 12, tech: { bend: 2, release: true, vibrato: true } },
+      { start: 12, dur: 12, string: 1, fret: 5, tech: { slide: true } },
+      { start: 24, dur: 12, string: 1, fret: 7, tech: { legato: true } },
+      { start: 36, dur: 96, string: 5, fret: 0, tech: { mute: true } },
+      { start: 132, dur: 24, string: 2, fret: 12, tech: { harmonic: true } },
+      { start: 156, dur: 6, string: 3, fret: 0, tech: { dead: true } },
+      { start: 162, dur: 6, string: 3, fret: 2 },
+    ]);
+    expect(strip(decodeSong(encodeSong(s)))).toEqual(strip(s));
+  });
+
+  it('notes without techniques cost nothing extra', () => {
+    const plain = mk([{ start: 0, dur: 12, string: 0, fret: 5 }]);
+    const bent = mk([{ start: 0, dur: 12, string: 0, fret: 5, tech: { bend: 1 } }]);
+    expect(fromBase64Url(encodeSong(bent)).length - fromBase64Url(encodeSong(plain)).length).toBe(2);
+  });
+
+  it('still opens version 1 links', () => {
+    // version 1, 100 bpm, 4/4, std, empty title, 2 notes: (0, 12, e5) and (+12, 24, B7)
+    const v1 = toBase64Url(Uint8Array.from([1, 100, 4, 4, 0, 0, 2, 0, 12, (0 << 5) | 5, 12, 24, (1 << 5) | 7]));
+    expect(strip(decodeSong(v1)).notes).toEqual([
+      { start: 0, dur: 12, string: 0, fret: 5 },
+      { start: 12, dur: 24, string: 1, fret: 7 },
+    ]);
+  });
+
+  it('rejects bad technique bytes', () => {
+    const bytes = fromBase64Url(encodeSong(mk([{ start: 0, dur: 12, string: 0, fret: 5, tech: { bend: 2 } }])));
+    const bad = Uint8Array.from(bytes); bad[bad.length - 1] = 0; // bend of 0 semitones
+    expect(() => decodeSong(toBase64Url(bad))).toThrow();
+  });
+});

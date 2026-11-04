@@ -1,5 +1,6 @@
 import { Note, PPQ, Song, barTicks, beatTicks, emptySong, pitchOf, songEndTick } from '../model/song';
-import { getCtx, playClick, playPluck } from './synth';
+import { PlayFx, getCtx, playClick, playPluck } from './synth';
+import { harmonicShift } from '../model/tech';
 
 export type LoopRange = { start: number; end: number } | null;
 
@@ -14,6 +15,7 @@ export class Player {
 
   private song: Song = emptySong();
   private byStart = new Map<number, Note[]>();
+  private how = new Map<number, { midi: number; fx: PlayFx }>(); // per note id: pitch and techniques
   private timer: number | undefined;
   private raf: number | undefined;
   private tick = 0;
@@ -31,6 +33,27 @@ export class Player {
       const list = this.byStart.get(n.start);
       if (list) list.push(n);
       else this.byStart.set(n.start, [n]);
+    }
+    // Work out each note's pitch and techniques once: slides glide to the next note on the string, which then
+    // isn't picked again; harmonics sound at their natural interval; a slide with nowhere to go falls off.
+    this.how = new Map();
+    const strings = new Map<number, Note[]>();
+    for (const n of song.notes) strings.set(n.string, [...(strings.get(n.string) ?? []), n]);
+    for (const list of strings.values()) {
+      list.sort((a, b) => a.start - b.start);
+      list.forEach((n, i) => {
+        const t = n.tech ?? {};
+        const pitch = (m: Note) => pitchOf(song, m) + (m.tech?.harmonic ? harmonicShift(m.fret) - m.fret : 0);
+        const next = list[i + 1], prev = list[i - 1];
+        this.how.set(n.id, {
+          midi: pitch(n),
+          fx: {
+            bend: t.bend, release: t.release, vibrato: t.vibrato, mute: t.mute, harmonic: t.harmonic, dead: t.dead,
+            legato: t.legato || !!prev?.tech?.slide,
+            slideTo: t.slide ? (next ? pitch(next) - pitch(n) : -5) : undefined,
+          },
+        });
+      });
     }
   }
 
@@ -101,7 +124,8 @@ export class Player {
       const spt = this.secPerTick();
       this.timeline.push({ time: this.time, tick: this.tick });
       for (const n of this.byStart.get(this.tick) ?? []) {
-        this.track(playPluck(ctx, pitchOf(this.song, n), this.time, n.dur * spt));
+        const h = this.how.get(n.id);
+        this.track(playPluck(ctx, h ? h.midi : pitchOf(this.song, n), this.time, n.dur * spt, h?.fx));
       }
       if (this.metronome && this.tick % beat === 0) this.track(playClick(ctx, this.time, this.tick % bar === 0));
       this.tick++;

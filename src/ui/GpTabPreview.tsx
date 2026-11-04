@@ -4,10 +4,10 @@ import type { JSX } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Song, barTicks, beatTicks } from '../model/song';
 import { GpScore, extractSection, sections } from '../import/gpScore';
-import { GAP, PAD, STAFF_H, drawBar } from './tabDraw';
+import { GAP, HEAD, LABEL_Y, PAD, STAFF_H, drawBar } from './tabDraw';
 
 const LEFT = 30;         // room for "TAB"
-const TOP = 30;          // staff top within a row (labels sit above)
+const TOP = HEAD;        // staff top within a row (labels and technique marks sit above)
 const ROW_H = TOP + STAFF_H + 56;
 const MIN_W = 130;       // narrowest bar
 const PER_EVENT = 22;    // extra width per note position, so busy bars get room
@@ -79,18 +79,21 @@ export function GpTabPreview({ score, track, range, onPick }: {
     const { i, x0, w: bw, y, song: s } = p;
     const gb = score.bars[i], prev = score.bars[i - 1];
     const on = i >= range.first && i <= range.last;
-    if (on) els.push(<rect key={`sel${i}`} class="gp-tab-sel" x={x0} y={y - 22} width={bw} height={STAFF_H + 70} />);
+    if (on) els.push(<rect key={`sel${i}`} class="gp-tab-sel" x={x0} y={y - HEAD + 4} width={bw} height={HEAD + STAFF_H + 48} />);
     els.push(<line key={`bl${i}`} class="tv-bar" x1={x0 + bw} x2={x0 + bw} y1={y} y2={y + STAFF_H} />);
     const tags = [
       String(i + 1),
       !prev || prev.num !== gb.num || prev.den !== gb.den ? `${gb.num}/${gb.den}` : '',
       !prev || Math.round(prev.tempo) !== Math.round(gb.tempo) ? `♩=${Math.round(gb.tempo)}` : '',
     ].filter(Boolean).join('  ');
-    els.push(<text key={`n${i}`} class="tv-label" x={x0 + 3} y={y - 8}>{tags}</text>);
-    if (secAt.has(i)) els.push(<text key={`sec${i}`} class="gp-tab-sec" x={x0 + 3} y={y - 20}>{secAt.get(i)}</text>);
+    els.push(
+      <text key={`n${i}`} class="tv-label" x={x0 + 3} y={y + LABEL_Y}>
+        {secAt.has(i) && <tspan class="gp-tab-sec">{secAt.get(i)}  </tspan>}{tags}
+      </text>,
+    );
     els.push(...drawBar({ notes: s.notes, start: 0, len: barTicks(s.timeSig), beat: beatTicks(s.timeSig), x0, w: bw, y, key: `g${i}` }));
     // Hit area for picking (drawn last so it's on top).
-    els.push(<rect key={`hit${i}`} data-bar={i} class="gp-tab-hit" x={x0} y={y - 26} width={bw} height={ROW_H} />);
+    els.push(<rect key={`hit${i}`} data-bar={i} class="gp-tab-hit" x={x0} y={y - HEAD} width={bw} height={ROW_H} />);
   });
   const height = placed.length ? placed[placed.length - 1].y - TOP + ROW_H : ROW_H;
 

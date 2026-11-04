@@ -1,11 +1,11 @@
 import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { barTicks, beatTicks, songEndTick } from '../model/song';
-import { GAP, PAD, STAFF_H, drawBar } from './tabDraw';
+import { GAP, HEAD, LABEL_Y, PAD, STAFF_H, drawBar } from './tabDraw';
 import { cursor, editMode, grid, hotIds, loop, loopOn, placeCursor, playhead, playing, seek, selection, song } from '../state/store';
 
 const LEFT = 36;      // room for the "TAB" label
-const TOP = 22;       // staff top within a row
+const TOP = HEAD;     // staff top within a row (labels and technique marks sit above)
 const ROW_H = TOP + STAFF_H + 58;
 const MIN_BAR_W = 260;
 
@@ -109,7 +109,7 @@ export function TabView() {
 
   for (let b = 0; b < nBars; b++) {
     const y = rowTop(b);
-    els.push(<text key={`n${b}`} class="tv-label" x={barLeft(b) + 3} y={y - 8}>{b === 0 ? `${s.timeSig.join('/')}  1` : b + 1}</text>);
+    els.push(<text key={`n${b}`} class="tv-label" x={barLeft(b) + 3} y={y + LABEL_Y}>{b === 0 ? `${s.timeSig.join('/')}  1` : b + 1}</text>);
     els.push(...drawBar({
       notes: s.notes, start: b * bar, len: bar, beat, x0: barLeft(b), w: barW, y, key: String(b),
       fretClass: n => `${hot.has(n.id) ? ' hot' : ''}${sel.has(n.id) ? ' sel' : ''}`,

@@ -15,7 +15,14 @@ export const TUNINGS: Record<TuningId, { name: string; pitches: number[] }> = {
 };
 export const TUNING_IDS = Object.keys(TUNINGS) as TuningId[];
 
-export type Note = { id: number; start: number; dur: number; string: number; fret: number };
+/** Playing techniques on a note. bend = semitones up (1 = half step ... 4 = two steps); slide = slide into the next note on
+ *  the string; legato = hammer-on/pull-off from the previous note on the string; mute = palm mute; dead = muted "x". */
+export type Tech = {
+  bend?: number; release?: boolean; vibrato?: boolean; slide?: boolean; legato?: boolean;
+  mute?: boolean; harmonic?: boolean; dead?: boolean;
+};
+
+export type Note = { id: number; start: number; dur: number; string: number; fret: number; tech?: Tech };
 
 export type Song = {
   v: 1;

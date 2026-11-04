@@ -128,11 +128,45 @@ function pluckBuffer(c: BaseAudioContext, midi: number, bright: number, half: nu
   return buf;
 }
 
+/** How a note is played. slideTo = semitones to glide to by the end of the note (slide into the next note). */
+export type PlayFx = {
+  bend?: number; release?: boolean; vibrato?: boolean; slideTo?: number;
+  legato?: boolean; mute?: boolean; harmonic?: boolean; dead?: boolean;
+};
+
+/** Pitch movement (bend, release, slide, vibrato) on a source's detune, in cents. Returns an LFO to stop, if any. */
+function pitchMoves(c: AudioContext, detune: AudioParam, when: number, ring: number, fx: PlayFx): OscillatorNode | null {
+  detune.setValueAtTime(0, when);
+  if (fx.bend) {
+    const up = Math.min(0.14, ring * 0.4);
+    detune.linearRampToValueAtTime(fx.bend * 100, when + up);
+    if (fx.release) {
+      const back = Math.max(when + up, when + ring * 0.6);
+      detune.setValueAtTime(fx.bend * 100, back);
+      detune.linearRampToValueAtTime(0, Math.max(back + 0.02, when + ring * 0.92));
+    }
+  } else if (fx.slideTo) {
+    detune.setValueAtTime(0, when + ring * 0.45);
+    detune.linearRampToValueAtTime(fx.slideTo * 100, when + ring);
+  }
+  if (!fx.vibrato) return null;
+  const lfo = c.createOscillator();
+  lfo.frequency.value = 5.5;
+  const depth = c.createGain();
+  depth.gain.setValueAtTime(0, when);
+  depth.gain.linearRampToValueAtTime(35, when + Math.min(0.15, ring * 0.5)); // eases in, like a real vibrato
+  lfo.connect(depth).connect(detune);
+  lfo.start(when);
+  lfo.stop(when + ring + 0.1);
+  return lfo;
+}
+
 /** One guitar note. Returns the node to stop if playback is interrupted. */
-export function playPluck(c: AudioContext, midi: number, when: number, dur: number): AudioScheduledSourceNode {
+export function playPluck(c: AudioContext, midi: number, when: number, dur: number, fx: PlayFx = {}): AudioScheduledSourceNode {
   getCtx();
   const inst = sound.instrument;
-  if (inst === 'synth') return playSynth(c, midi, when, dur);
+  if (fx.harmonic) return playHarmonic(c, midi, when, dur);
+  if (inst === 'synth') return playSynth(c, midi, when, dur, fx);
   const key = `${inst}:${midi}`;
   let buf = cache.get(key);
   if (!buf) {
@@ -142,18 +176,54 @@ export function playPluck(c: AudioContext, midi: number, when: number, dur: numb
   const src = c.createBufferSource();
   src.buffer = buf;
   const g = c.createGain();
-  const ring = Math.min(Math.max(dur, 0.05), buf.duration - 0.1);
-  const level = { clean: 0.5, acoustic: 0.42, nylon: 0.5, overdrive: 0.35 }[inst]; // every pluck starts at the same peak; brighter tones sound louder
-  g.gain.setValueAtTime(level, when);
-  g.gain.setValueAtTime(level, when + ring);
+  let ring = Math.min(Math.max(dur, 0.05), buf.duration - 0.1);
+  if (fx.dead) ring = 0.03;
+  let level = { clean: 0.5, acoustic: 0.42, nylon: 0.5, overdrive: 0.35 }[inst]; // every pluck starts at the same peak; brighter tones sound louder
+  if (fx.legato) level *= 0.65; // hammer-on / pull-off: no pick attack
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(level, when + (fx.legato ? 0.008 : 0.002));
+  if (fx.mute) g.gain.setTargetAtTime(level * 0.15, when + 0.01, 0.07); // palm mute dies fast
+  g.gain.setValueAtTime(fx.mute ? level * 0.15 : level, when + ring);
   g.gain.linearRampToValueAtTime(0, when + ring + 0.06); // string mute
-  src.connect(g).connect(inst === 'overdrive' ? driveIn! : guitarBus!);
+  const lfo = fx.dead ? null : pitchMoves(c, src.detune, when, ring, fx);
+  let chain: AudioNode = src;
+  if (fx.mute || fx.dead) { // dull the tone
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = fx.dead ? 1400 : 900;
+    chain = chain.connect(lp);
+  }
+  chain.connect(g).connect(inst === 'overdrive' ? driveIn! : guitarBus!);
   src.start(when);
   src.stop(when + ring + 0.08);
+  if (lfo) src.addEventListener('ended', () => { try { lfo.stop(); } catch { /* done */ } });
   return src;
 }
 
-function playSynth(c: AudioContext, midi: number, when: number, dur: number): AudioScheduledSourceNode {
+/** Natural harmonic: a glassy, bell-like tone (midi is already the harmonic's pitch). */
+function playHarmonic(c: AudioContext, midi: number, when: number, dur: number): AudioScheduledSourceNode {
+  const osc = c.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = midiToFreq(midi);
+  const over = c.createOscillator();
+  over.type = 'sine';
+  over.frequency.value = midiToFreq(midi) * 2;
+  const og = c.createGain();
+  og.gain.value = 0.18;
+  const g = c.createGain();
+  const ring = Math.max(dur, 0.6);
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(0.32, when + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.001, when + ring + 0.4);
+  osc.connect(g);
+  over.connect(og).connect(g);
+  g.connect(guitarBus!);
+  osc.start(when); over.start(when);
+  osc.stop(when + ring + 0.45); over.stop(when + ring + 0.45);
+  return osc;
+}
+
+function playSynth(c: AudioContext, midi: number, when: number, dur: number, fx: PlayFx): AudioScheduledSourceNode {
   const osc = c.createOscillator();
   osc.type = 'sawtooth';
   osc.frequency.value = midiToFreq(midi);
@@ -161,18 +231,21 @@ function playSynth(c: AudioContext, midi: number, when: number, dur: number): Au
   f.type = 'lowpass';
   f.Q.value = 4;
   f.frequency.setValueAtTime(400, when);
-  f.frequency.linearRampToValueAtTime(2600, when + 0.03);
-  f.frequency.exponentialRampToValueAtTime(900, when + 0.4);
+  f.frequency.linearRampToValueAtTime(fx.mute || fx.dead ? 900 : 2600, when + 0.03);
+  f.frequency.exponentialRampToValueAtTime(fx.mute || fx.dead ? 400 : 900, when + 0.4);
   const g = c.createGain();
-  const len = Math.max(dur, 0.06);
+  const len = fx.dead ? 0.04 : fx.mute ? Math.min(Math.max(dur, 0.06), 0.15) : Math.max(dur, 0.06);
+  const peak = fx.legato ? 0.15 : 0.22;
   g.gain.setValueAtTime(0, when);
-  g.gain.linearRampToValueAtTime(0.22, when + 0.01);
+  g.gain.linearRampToValueAtTime(peak, when + 0.01);
   g.gain.setTargetAtTime(0.15, when + 0.01, 0.15);
   g.gain.setValueAtTime(0.15, when + len);
   g.gain.linearRampToValueAtTime(0, when + len + 0.05);
+  const lfo = fx.dead ? null : pitchMoves(c, osc.detune, when, len, fx);
   osc.connect(f).connect(g).connect(guitarBus!);
   osc.start(when);
   osc.stop(when + len + 0.07);
+  if (lfo) osc.addEventListener('ended', () => { try { lfo.stop(); } catch { /* done */ } });
   return osc;
 }
 

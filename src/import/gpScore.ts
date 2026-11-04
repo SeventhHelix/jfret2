@@ -1,14 +1,12 @@
 // Guitar Pro import, the pure half: plain score types (filled in by gpRead.ts) and every decision about
 // how a section of one track becomes a jFret riff. No alphaTab in here, so it's all unit-testable.
-import { MAX_FRET, MAX_TICKS, Note, STRINGS, Song, TUNINGS, TUNING_IDS, TuningId, newId, normalizeNotes } from '../model/song';
-
-/** Playing techniques jFret can't show. dead and grace notes are dropped; the rest import as plain notes. */
-export type Fx = 'dead' | 'grace' | 'bend' | 'slide' | 'legato' | 'vibrato' | 'harmonic' | 'mute';
+import { MAX_FRET, MAX_TICKS, Note, STRINGS, Song, TUNINGS, TUNING_IDS, Tech, TuningId, newId, normalizeNotes } from '../model/song';
+import { cleanTech } from '../model/tech';
 
 /** Times are jFret ticks (24 per quarter), not rounded yet. */
 export type GpBar = { start: number; num: number; den: number; tempo: number; section?: string; repeat: boolean };
-/** string 0 = the track's highest string; fret as written (relative to the capo). */
-export type GpNote = { bar: number; start: number; dur: number; string: number; fret: number; tie: boolean; fx: Fx[] };
+/** string 0 = the track's highest string; fret as written (relative to the capo). Grace notes are left out on import. */
+export type GpNote = { bar: number; start: number; dur: number; string: number; fret: number; tie: boolean; tech?: Tech; grace?: boolean };
 /** tuning: open-string MIDI pitches, high to low. */
 export type GpTrack = { name: string; tuning: number[]; capo: number; notes: GpNote[] };
 export type GpScore = { title: string; artist: string; bars: GpBar[]; tracks: GpTrack[] };
@@ -29,7 +27,7 @@ export function sections(score: GpScore): Section[] {
 /** Notes per bar for one track (grace notes don't count). */
 export function barCounts(track: GpTrack, barCount: number): number[] {
   const counts = new Array<number>(barCount).fill(0);
-  for (const n of track.notes) if (!n.fx.includes('grace') && n.bar < barCount) counts[n.bar]++;
+  for (const n of track.notes) if (!n.grace && n.bar < barCount) counts[n.bar]++;
   return counts;
 }
 
@@ -74,11 +72,6 @@ export function describeFit(track: GpTrack, fit: TuningFit): string {
 
 export type Extracted = { song: Song; warnings: string[]; noteCount: number };
 
-const FX_LABEL: Partial<Record<Fx, [string, string]>> = { // singular, plural
-  bend: ['bend', 'bends'], slide: ['slide', 'slides'], legato: ['hammer-on/pull-off', 'hammer-ons/pull-offs'],
-  vibrato: ['vibrato', 'vibrato'], harmonic: ['harmonic', 'harmonics'], mute: ['palm mute', 'palm mutes'],
-};
-
 /** Bars first..last (inclusive) of one track as a riff, plus what didn't survive the trip. */
 export function extractSection(score: GpScore, trackIndex: number, first: number, last: number): Extracted {
   const track = score.tracks[trackIndex];
@@ -94,13 +87,14 @@ export function extractSection(score: GpScore, trackIndex: number, first: number
   const lastOn = new Map<number, GpNote>();
   let dropped = 0;
   for (const n of src) {
-    if (n.fx.includes('dead') || n.fx.includes('grace')) { dropped++; continue; }
+    if (n.grace) { dropped++; continue; }
     const prev = lastOn.get(n.string);
     if (n.tie && prev && prev.fret === n.fret && Math.abs(prev.start + prev.dur - n.start) < 0.5) {
       prev.dur = n.start + n.dur - prev.start;
+      if (n.tech?.vibrato) prev.tech = { ...prev.tech, vibrato: true }; // vibrato often starts on the tied part
       continue;
     }
-    const copy = { ...n, fx: [...n.fx] };
+    const copy = { ...n, tech: n.tech && { ...n.tech } };
     merged.push(copy);
     lastOn.set(n.string, copy);
   }
@@ -113,7 +107,6 @@ export function extractSection(score: GpScore, trackIndex: number, first: number
 
   const notes: Note[] = [];
   let moved = 0, lost = 0, inexact = 0;
-  const fxCount = new Map<Fx, number>();
   for (const n of merged) {
     const fret = n.fret + track.capo;
     let string = n.string + fit.offset;
@@ -137,12 +130,12 @@ export function extractSection(score: GpScore, trackIndex: number, first: number
     const end = Math.max(start + 1, Math.round(endF));
     if (Math.abs(startF - start) > 0.01 || Math.abs(endF - Math.round(endF)) > 0.01) inexact++;
     if (end > MAX_TICKS) { lost++; continue; }
-    for (const fx of n.fx) fxCount.set(fx, (fxCount.get(fx) ?? 0) + 1);
-    notes.push({ id: newId(), start, dur: end - start, string, fret: f });
+    const tech = cleanTech(n.tech);
+    notes.push(tech ? { id: newId(), start, dur: end - start, string, fret: f, tech } : { id: newId(), start, dur: end - start, string, fret: f });
   }
   if (moved) warnings.push(`${moved} note${moved === 1 ? '' : 's'} moved to another string (that string doesn't exist here).`);
   if (lost) warnings.push(`${lost} note${lost === 1 ? '' : 's'} couldn't be placed and ${lost === 1 ? 'was' : 'were'} left out.`);
-  if (dropped) warnings.push(`${dropped} dead or grace note${dropped === 1 ? '' : 's'} left out.`);
+  if (dropped) warnings.push(`${dropped} grace note${dropped === 1 ? '' : 's'} left out.`);
   if (inexact) warnings.push(`${inexact} note${inexact === 1 ? '' : 's'} with rhythms jFret can't show exactly (e.g. 64ths, quintuplets) were rounded.`);
 
   const range = bars.slice(first, last + 1);
@@ -156,8 +149,6 @@ export function extractSection(score: GpScore, trackIndex: number, first: number
   const sigs = [...new Set(range.map(b => `${b.num}/${b.den}`))];
   if (sigs.length > 1) warnings.push(`Time signature changes inside the section (${sigs.join(' → ')}): timing is kept, but later bar lines won't line up.`);
   if (range.some(b => b.repeat)) warnings.push('The section has repeat signs; bars are imported as written, not repeated.');
-  const fxText = [...fxCount].filter(([fx]) => FX_LABEL[fx]).map(([fx, c]) => `${c} ${FX_LABEL[fx]![c === 1 ? 0 : 1]}`);
-  if (fxText.length) warnings.push(`Played as plain notes (jFret doesn't show techniques yet): ${fxText.join(', ')}.`);
 
   const sec = sections(score).find(s => s.first === first && s.last === last);
   const title = `${score.title.trim() || 'Imported'} · ${sec ? sec.name : first === last ? `bar ${first + 1}` : `bars ${first + 1}-${last + 1}`}`;
