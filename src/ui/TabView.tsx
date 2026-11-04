@@ -120,6 +120,20 @@ export function TabView() {
   const showHead = playing.value || playhead.value > 0;
   const hb = barOf(playhead.value);
 
+  // The tab is a scroll pane: follow the playhead. While playing, each new line scrolls to the top so the
+  // lines coming up stay in view; when stopped, just keep the playhead's line visible.
+  const headLine = Math.floor(hb / perLine);
+  const isPlaying = playing.value;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !showHead) return;
+    const top = headLine * ROW_H, bottom = top + ROW_H;
+    const visible = top >= el.scrollTop && bottom <= el.scrollTop + el.clientHeight;
+    if (isPlaying ? Math.abs(el.scrollTop - top) > 2 : !visible) {
+      el.scrollTo({ top, behavior: isPlaying ? 'smooth' : 'auto' });
+    }
+  }, [headLine, isPlaying, perLine]);
+
   return (
     <div class="panel tv" ref={ref}>
       {!s.notes.length ? (
