@@ -2,8 +2,8 @@ import { MAX_FRET, MAX_TICKS, STRINGS, Song, TUNING_IDS, newId, normalizeNotes, 
 import { cleanTech } from '../model/tech';
 
 // Version 2: the duration varint is dur * 2 + hasTech, and only notes with techniques carry a flags byte.
-// BEND means one more byte follows: semitones (bits 0-2) | release << 3.
-const T_VIBRATO = 1, T_SLIDE = 2, T_LEGATO = 4, T_MUTE = 8, T_HARMONIC = 16, T_DEAD = 32, T_BEND = 64;
+// BEND means one more byte follows: semitones (bits 0-2) | release << 3. PINCH means one more after that: its semitones.
+const T_VIBRATO = 1, T_SLIDE = 2, T_LEGATO = 4, T_MUTE = 8, T_HARMONIC = 16, T_DEAD = 32, T_BEND = 64, T_PINCH = 128;
 
 function writeTech(out: number[], c: Tech) {
   let f = 0;
@@ -14,13 +14,14 @@ function writeTech(out: number[], c: Tech) {
   if (c.harmonic) f |= T_HARMONIC;
   if (c.dead) f |= T_DEAD;
   if (c.bend) f |= T_BEND;
+  if (c.pinch) f |= T_PINCH;
   out.push(f);
   if (c.bend) out.push(c.bend | (c.release ? 8 : 0));
+  if (c.pinch) out.push(c.pinch);
 }
 
 function readTech(r: Reader): Tech | undefined {
   const f = r.byte();
-  if (f & 0x80) throw new Error('bad technique flags');
   const t: Tech = {};
   if (f & T_VIBRATO) t.vibrato = true;
   if (f & T_SLIDE) t.slide = true;
@@ -34,6 +35,11 @@ function readTech(r: Reader): Tech | undefined {
     if (semis < 1 || semis > 4 || b > 15) throw new Error('bad bend');
     t.bend = semis;
     if (b & 8) t.release = true;
+  }
+  if (f & T_PINCH) {
+    const p = r.byte();
+    if (p < 1 || p > 48) throw new Error('bad pinch harmonic');
+    t.pinch = p;
   }
   return cleanTech(t);
 }

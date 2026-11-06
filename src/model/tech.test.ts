@@ -41,6 +41,14 @@ describe('tech', () => {
     expect(nextOnString(s.notes, s.notes[1])).toBeUndefined();
   });
 
+  it('pinch harmonics: added by hand at +19, one kind of harmonic at a time', () => {
+    let s = song([{ start: 0, dur: 12, string: 0, fret: 5, tech: { harmonic: true } }]);
+    s = toggleTech(s, new Set([1]), 'pinch');
+    expect(s.notes[0].tech).toEqual({ pinch: 19 });
+    s = toggleTech(s, new Set([1]), 'harmonic');
+    expect(s.notes[0].tech).toEqual({ harmonic: true });
+  });
+
   it('natural harmonics sound at the right interval', () => {
     expect([12, 7, 5, 4, 2].map(harmonicShift)).toEqual([12, 19, 24, 28, 2]);
   });

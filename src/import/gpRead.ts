@@ -53,7 +53,11 @@ export async function readScoreFile(bytes: Uint8Array): Promise<GpScore> {
           if (n.slideOutType !== 0) tech.slide = true; // slide into the next note (or off, when there is none)
           if (n.isHammerPullDestination || n.isLeftHandTapped) tech.legato = true;
           if (n.isPalmMute) tech.mute = true;
-          if (n.harmonicType !== 0) tech.harmonic = true;
+          if (n.harmonicType === 1) tech.harmonic = true; // natural
+          else if (n.harmonicType !== 0) { // pinch / artificial / tapped / semi: a set interval above the fretted note
+            const shift = n.realValue - n.realValueWithoutHarmonic;
+            tech.pinch = shift > 0 ? shift : 12;
+          }
           if (n.isDead) tech.dead = true;
           notes.push({
             bar: b.index,

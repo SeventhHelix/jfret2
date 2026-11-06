@@ -1,7 +1,10 @@
 // Playing techniques (bends, vibrato, slides, hammer-ons/pull-offs, palm mute, harmonics, dead notes): pure helpers.
 import { Note, Song, Tech, normalizeNotes } from './song';
 
-export type TechFlag = 'vibrato' | 'slide' | 'legato' | 'mute' | 'harmonic' | 'dead' | 'release';
+export type TechFlag = 'vibrato' | 'slide' | 'legato' | 'mute' | 'harmonic' | 'pinch' | 'dead' | 'release';
+
+/** A pinch harmonic added by hand: an octave and a fifth above the fretted note, the usual squeal. */
+export const PINCH_DEFAULT = 19;
 
 export const BEND_LABEL: Record<number, string> = { 1: '½', 2: 'full', 3: '1½', 4: '2' };
 
@@ -11,6 +14,7 @@ export function cleanTech(t: Tech | undefined): Tech | undefined {
   const out: Tech = {};
   if (t.bend && t.bend > 0) { out.bend = Math.min(4, Math.round(t.bend)); if (t.release) out.release = true; }
   for (const k of ['vibrato', 'slide', 'legato', 'mute', 'harmonic', 'dead'] as const) if (t[k]) out[k] = true;
+  if (t.pinch && t.pinch > 0 && !out.harmonic) out.pinch = Math.min(48, Math.round(t.pinch));
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -33,7 +37,10 @@ export function allHave(notes: Note[], flag: TechFlag): boolean {
 export function toggleTech(song: Song, ids: Set<number>, flag: TechFlag): Song {
   const on = !allHave(song.notes.filter(n => ids.has(n.id)), flag);
   return withTech(song, ids, t => {
-    const next = { ...t, [flag]: on };
+    const next: Tech = { ...t, [flag]: on };
+    if (flag === 'pinch') next.pinch = on ? PINCH_DEFAULT : undefined;
+    if (on && flag === 'pinch') next.harmonic = false; // one kind of harmonic at a time
+    if (on && flag === 'harmonic') next.pinch = undefined;
     if (flag === 'release' && on && !next.bend) next.bend = 2; // a release needs a bend; default to a full bend
     return next;
   });
@@ -74,6 +81,6 @@ export function techMarks(t: Tech | undefined): string {
   if (!t) return '';
   return [
     t.bend ? `b${BEND_LABEL[t.bend] ?? t.bend}${t.release ? 'r' : ''}` : '',
-    t.vibrato ? '~' : '', t.slide ? '/' : '', t.legato ? 'h' : '', t.mute ? 'PM' : '', t.harmonic ? '◇' : '',
+    t.vibrato ? '~' : '', t.slide ? '/' : '', t.legato ? 'h' : '', t.mute ? 'PM' : '', t.harmonic ? '◇' : '', t.pinch ? 'PH' : '',
   ].filter(Boolean).join(' ');
 }

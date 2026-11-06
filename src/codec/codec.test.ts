@@ -101,6 +101,7 @@ describe('codec: techniques (version 2)', () => {
       { start: 132, dur: 24, string: 2, fret: 12, tech: { harmonic: true } },
       { start: 156, dur: 6, string: 3, fret: 0, tech: { dead: true } },
       { start: 162, dur: 6, string: 3, fret: 2 },
+      { start: 168, dur: 24, string: 2, fret: 7, tech: { pinch: 24, vibrato: true, bend: 1 } },
     ]);
     expect(strip(decodeSong(encodeSong(s)))).toEqual(strip(s));
   });

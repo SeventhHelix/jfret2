@@ -48,7 +48,7 @@ export function App() {
             <span>Drag across the tab to loop</span>
             <span><kbd>Space</kbd> play</span>
             <span><kbd>1</kbd>–<kbd>6</kbd> note length, <kbd>.</kbd> dotted, <kbd>T</kbd> triplet</span>
-            <span><kbd>B</kbd> bend (again to change it) · <kbd>R</kbd> release · <kbd>V</kbd> vibrato · <kbd>S</kbd> slide · <kbd>H</kbd> hammer-on/pull-off · <kbd>M</kbd> palm mute · <kbd>N</kbd> harmonic · <kbd>X</kbd> dead note</span>
+            <span><kbd>B</kbd> bend (again to change it) · <kbd>R</kbd> release · <kbd>V</kbd> vibrato · <kbd>S</kbd> slide · <kbd>H</kbd> hammer-on/pull-off · <kbd>M</kbd> palm mute · <kbd>N</kbd> harmonic · <kbd>P</kbd> pinch harmonic · <kbd>X</kbd> dead note</span>
             <span><kbd>←</kbd><kbd>→</kbd> nudge, <kbd>↑</kbd><kbd>↓</kbd> change string</span>
             <span><kbd>Alt</kbd>+<kbd>↑</kbd><kbd>↓</kbd> or mouse wheel on a note: up/down a fret</span>
             <span>Click a bar number to select the bar, <kbd>L</kbd> to loop it</span>

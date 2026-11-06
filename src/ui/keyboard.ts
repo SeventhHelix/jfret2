@@ -9,7 +9,7 @@ import {
 // 1=whole 2=half 3=quarter 4=8th 5=16th 6=32nd
 const DUR_KEYS: Record<string, number> = { '1': 96, '2': 48, '3': 24, '4': 12, '5': 6, '6': 3 };
 // B cycles the bend; these toggle a technique.
-const TECH_KEYS: Record<string, TechFlag> = { r: 'release', v: 'vibrato', s: 'slide', h: 'legato', m: 'mute', n: 'harmonic', x: 'dead' };
+const TECH_KEYS: Record<string, TechFlag> = { r: 'release', v: 'vibrato', s: 'slide', h: 'legato', m: 'mute', n: 'harmonic', p: 'pinch', x: 'dead' };
 
 export function useKeyboard() {
   useEffect(() => {

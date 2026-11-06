@@ -122,6 +122,7 @@ function drawTech(d: BarDraw, shown: Note[]): JSX.Element[] {
         els.push(<path key={`brh${n.id}`} class="tv-tech-head" d={`M${px + 5} ${ny - 5} L${px + 9} ${ny - 2} L${px + 5} ${ny + 1} Z`} />);
       }
     }
+    if (t.pinch) els.push(<text key={`ph${n.id}`} class="tv-tech-txt" x={x} y={y - 19}>P.H.</text>);
     if (t.vibrato) {
       const x1 = Math.min(xIn(Math.min(end, n.start + n.dur)), d.x0 + d.w - 4);
       const len = Math.max(14, x1 - x - 2);

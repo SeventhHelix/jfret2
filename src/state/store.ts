@@ -5,6 +5,7 @@ import { addNote, copyNotes, deleteNotes, duplicateNotes, NewNote, pasteNotes, s
 import { History } from '../model/history';
 import type { FlowGrouping } from '../model/flow';
 import { decodeSong, encodeSong } from '../codec/codec';
+import { Practice, formatPractice, pageTitle, parsePractice } from '../codec/practice';
 import { Player } from '../audio/player';
 import { CLICK_SOUNDS, DEFAULT_SOUND, INSTRUMENTS, SoundSettings, setSound } from '../audio/synth';
 
@@ -59,8 +60,10 @@ function loadSound(): SoundSettings {
   } catch { return DEFAULT_SOUND; }
 }
 export const sound = signal<SoundSettings>(loadSound());
+let soundFromLink = false; // settings applied from someone's link don't replace your own saved defaults
 effect(() => {
   setSound(sound.value);
+  if (soundFromLink) return;
   try { localStorage.setItem(SOUND_KEY, JSON.stringify(sound.value)); } catch { /* ignore */ }
 });
 export function setSoundOpts(patch: Partial<SoundSettings>) {
@@ -356,6 +359,30 @@ export const softIds = computed<Set<number>>(() => {
 
 // ---- persistence ----
 const LS_KEY = 'jfret:last';
+const PRACTICE_KEY = 'jfret:last-practice'; // the practice settings that go with the last riff
+
+/** Practice + sound settings as the link carries them. */
+function currentPractice(): Practice {
+  const sn = sound.value;
+  return {
+    speed: speed.value, loop: loopOn.value ? loop.value : null, metronome: metronome.value, countIn: countIn.value,
+    volume: sn.volume, clickVolume: sn.clickVolume, instrument: sn.instrument, click: sn.click,
+  };
+}
+
+function applyPractice(p: Practice) {
+  batch(() => {
+    speed.value = p.speed;
+    loop.value = p.loop;
+    loopOn.value = !!p.loop;
+    metronome.value = p.metronome;
+    countIn.value = p.countIn;
+  });
+  // Outside the batch: effects run when it ends, and the flag has to still be set then.
+  soundFromLink = true;
+  sound.value = { instrument: p.instrument, volume: p.volume, click: p.click, clickVolume: p.clickVolume };
+  soundFromLink = false;
+}
 
 function payloadFromHash(): string | null {
   const m = location.hash.match(/[#&]s=([A-Za-z0-9_-]+)/);
@@ -363,7 +390,7 @@ function payloadFromHash(): string | null {
 }
 
 export function shareUrl(): string {
-  return `${location.origin}${location.pathname}#s=${encodeSong(song.value)}`;
+  return `${location.origin}${location.pathname}#s=${encodeSong(song.value)}${formatPractice(currentPractice())}`;
 }
 
 export function loadInitial() {
@@ -375,6 +402,8 @@ export function loadInitial() {
       let own: string | null = null;
       try { own = localStorage.getItem(LS_KEY); } catch { /* storage unavailable */ }
       if (p !== own && song.value.notes.length) editMode.value = false;
+      const pr = parsePractice(location.hash);
+      if (pr) applyPractice(pr);
     } catch {
       errorMsg.value = "That link couldn't be read, so an empty riff was loaded.";
     }
@@ -382,6 +411,8 @@ export function loadInitial() {
     try {
       const saved = localStorage.getItem(LS_KEY);
       if (saved) song.value = decodeSong(saved);
+      const pr = parsePractice('#' + (localStorage.getItem(PRACTICE_KEY) ?? ''));
+      if (saved && pr) applyPractice(pr);
     } catch { /* storage unavailable or corrupt: start empty */ }
   }
   cursor.value = songEndTick(song.value);
@@ -392,6 +423,7 @@ export function startAutosave() {
   let first = true;
   effect(() => {
     const payload = encodeSong(song.value);
+    const extra = formatPractice(currentPractice()); // speed, loop, metronome, volumes... travel with the riff
     const isFirst = first;
     first = false;
     // Initial load: don't overwrite the saved riff, and keep a bad link visible.
@@ -399,17 +431,20 @@ export function startAutosave() {
     clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
       if (!skipUrl) {
-        try { window.history.replaceState(null, '', `#s=${payload}`); } catch { /* ignore */ }
+        try { window.history.replaceState(null, '', `#s=${payload}${extra}`); } catch { /* ignore */ }
       }
       if (!isFirst) {
-        try { localStorage.setItem(LS_KEY, payload); } catch { /* ignore */ }
+        try { localStorage.setItem(LS_KEY, payload); localStorage.setItem(PRACTICE_KEY, extra); } catch { /* ignore */ }
       }
     }, 300);
   });
   // A different link pasted into the same tab.
   window.addEventListener('hashchange', () => {
     const p = payloadFromHash();
-    if (!p || p === encodeSong(song.value)) return;
+    if (!p) return;
+    const pr = parsePractice(location.hash);
+    if (pr) applyPractice(pr);
+    if (p === encodeSong(song.value)) return;
     try {
       commit(decodeSong(p));
       selection.value = new Set();
@@ -418,6 +453,8 @@ export function startAutosave() {
       errorMsg.value = "That link couldn't be read.";
     }
   });
+  // The tab title names the riff, so bookmarks and browser history can find it.
+  effect(() => { document.title = pageTitle(song.value.title); });
 }
 
 // ---- note length palette ----

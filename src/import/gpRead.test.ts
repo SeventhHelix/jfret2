@@ -79,3 +79,17 @@ describe('readScoreFile: techniques', async () => {
     expect(r.warnings).toEqual([]);
   });
 });
+
+describe('readScoreFile: harmonics', async () => {
+  // Natural at fret 12; artificial +24 at fret 7; pinch with no value (an octave); semi at fret 6.
+  const imp = new at.importer.AlphaTexImporter();
+  imp.initFromString(String.raw`\track "L"
+12.3{nh}.4 7.3{ah 24}.4 5.2{ph}.4 6.1{sh 12}.4 |`, new at.Settings());
+  const score = await readScoreFile(new at.exporter.Gp7Exporter().export(imp.readScore(), new at.Settings()));
+
+  it('natural harmonics stay natural; pinch/artificial ones keep how far above the fret they sound', () => {
+    expect(score.tracks[0].notes.map(n => [n.fret, n.tech])).toEqual([
+      [12, { harmonic: true }], [7, { pinch: 24 }], [5, { pinch: 12 }], [6, { pinch: 12 }],
+    ]);
+  });
+});

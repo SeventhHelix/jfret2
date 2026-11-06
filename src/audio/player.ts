@@ -43,12 +43,13 @@ export class Player {
       list.sort((a, b) => a.start - b.start);
       list.forEach((n, i) => {
         const t = n.tech ?? {};
-        const pitch = (m: Note) => pitchOf(song, m) + (m.tech?.harmonic ? harmonicShift(m.fret) - m.fret : 0);
+        // Natural harmonics sound at the node's interval above the open string; pinch harmonics a set interval above the fret.
+        const pitch = (m: Note) => pitchOf(song, m) + (m.tech?.harmonic ? harmonicShift(m.fret) - m.fret : m.tech?.pinch ?? 0);
         const next = list[i + 1], prev = list[i - 1];
         this.how.set(n.id, {
           midi: pitch(n),
           fx: {
-            bend: t.bend, release: t.release, vibrato: t.vibrato, mute: t.mute, harmonic: t.harmonic, dead: t.dead,
+            bend: t.bend, release: t.release, vibrato: t.vibrato, mute: t.mute, harmonic: t.harmonic || !!t.pinch, dead: t.dead,
             legato: t.legato || !!prev?.tech?.slide,
             slideTo: t.slide ? (next ? pitch(next) - pitch(n) : -5) : undefined,
           },

@@ -75,6 +75,7 @@ const TECH_BUTTONS: { flag: TechFlag; label: string; key: string; tip: string }[
   { flag: 'legato', label: 'h/p', key: 'H', tip: 'Hammer-on / pull-off from the previous note on this string' },
   { flag: 'mute', label: 'P.M.', key: 'M', tip: 'Palm mute' },
   { flag: 'harmonic', label: '<◇> Harmonic', key: 'N', tip: 'Natural harmonic (frets 12, 7, 5, 4...)' },
+  { flag: 'pinch', label: 'P.H.', key: 'P', tip: 'Pinch harmonic: squeals an octave and a fifth above the fretted note' },
   { flag: 'dead', label: '✕ Dead', key: 'X', tip: 'Dead (muted) note' },
 ];
 

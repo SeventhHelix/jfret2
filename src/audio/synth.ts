@@ -128,7 +128,8 @@ function pluckBuffer(c: BaseAudioContext, midi: number, bright: number, half: nu
   return buf;
 }
 
-/** How a note is played. slideTo = semitones to glide to by the end of the note (slide into the next note). */
+/** How a note is played. slideTo = semitones to glide to by the end of the note (slide into the next note).
+ *  harmonic: midi is already the harmonic's pitch; it's played on the same instrument, a little softer and ringing longer. */
 export type PlayFx = {
   bend?: number; release?: boolean; vibrato?: boolean; slideTo?: number;
   legato?: boolean; mute?: boolean; harmonic?: boolean; dead?: boolean;
@@ -165,7 +166,6 @@ function pitchMoves(c: AudioContext, detune: AudioParam, when: number, ring: num
 export function playPluck(c: AudioContext, midi: number, when: number, dur: number, fx: PlayFx = {}): AudioScheduledSourceNode {
   getCtx();
   const inst = sound.instrument;
-  if (fx.harmonic) return playHarmonic(c, midi, when, dur);
   if (inst === 'synth') return playSynth(c, midi, when, dur, fx);
   const key = `${inst}:${midi}`;
   let buf = cache.get(key);
@@ -178,8 +178,10 @@ export function playPluck(c: AudioContext, midi: number, when: number, dur: numb
   const g = c.createGain();
   let ring = Math.min(Math.max(dur, 0.05), buf.duration - 0.1);
   if (fx.dead) ring = 0.03;
+  if (fx.harmonic) ring = Math.min(Math.max(ring, 0.8), buf.duration - 0.1);
   let level = { clean: 0.5, acoustic: 0.42, nylon: 0.5, overdrive: 0.35 }[inst]; // every pluck starts at the same peak; brighter tones sound louder
   if (fx.legato) level *= 0.65; // hammer-on / pull-off: no pick attack
+  if (fx.harmonic) level *= 0.8;
   g.gain.setValueAtTime(0, when);
   g.gain.linearRampToValueAtTime(level, when + (fx.legato ? 0.008 : 0.002));
   if (fx.mute) g.gain.setTargetAtTime(level * 0.15, when + 0.01, 0.07); // palm mute dies fast
@@ -198,29 +200,6 @@ export function playPluck(c: AudioContext, midi: number, when: number, dur: numb
   src.stop(when + ring + 0.08);
   if (lfo) src.addEventListener('ended', () => { try { lfo.stop(); } catch { /* done */ } });
   return src;
-}
-
-/** Natural harmonic: a glassy, bell-like tone (midi is already the harmonic's pitch). */
-function playHarmonic(c: AudioContext, midi: number, when: number, dur: number): AudioScheduledSourceNode {
-  const osc = c.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.value = midiToFreq(midi);
-  const over = c.createOscillator();
-  over.type = 'sine';
-  over.frequency.value = midiToFreq(midi) * 2;
-  const og = c.createGain();
-  og.gain.value = 0.18;
-  const g = c.createGain();
-  const ring = Math.max(dur, 0.6);
-  g.gain.setValueAtTime(0, when);
-  g.gain.linearRampToValueAtTime(0.32, when + 0.004);
-  g.gain.exponentialRampToValueAtTime(0.001, when + ring + 0.4);
-  osc.connect(g);
-  over.connect(og).connect(g);
-  g.connect(guitarBus!);
-  osc.start(when); over.start(when);
-  osc.stop(when + ring + 0.45); over.stop(when + ring + 0.45);
-  return osc;
 }
 
 function playSynth(c: AudioContext, midi: number, when: number, dur: number, fx: PlayFx): AudioScheduledSourceNode {
