@@ -3,7 +3,7 @@ import { Song, TUNINGS, TUNING_IDS, TuningId } from '../model/song';
 import { GP_ACCEPT } from './ImportDialog';
 import { SoundMenu } from './SoundMenu';
 import {
-  commit, countIn, editMode, importFile, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
+  SIZES, commit, countIn, editMode, setView, stepSize, view, importFile, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
   shareUrl, song, speed, togglePlay, undo,
 } from '../state/store';
 
@@ -48,6 +48,11 @@ export function Transport() {
           <button class={countIn.value ? 'on' : ''} onClick={() => { countIn.value = !countIn.value; }}>Count-in</button>
         </div>
         <SoundMenu />
+        <div class="size-ctl" title="Size of the tab and fretboard (saved in this browser). The page gets wider with it.">
+          <button onClick={() => stepSize(-1)} disabled={view.value.zoom <= SIZES[0]} aria-label="Smaller">−</button>
+          <button class="size-val" onClick={() => setView({ zoom: 1 })} title="Back to 100%">{Math.round(view.value.zoom * 100)}%</button>
+          <button onClick={() => stepSize(1)} disabled={view.value.zoom >= SIZES[SIZES.length - 1]} aria-label="Bigger">+</button>
+        </div>
         <span class="spacer" />
         <button onClick={copy} title="Copy a link to this riff">{copied ? '✓ Copied' : 'Share'}</button>
         <div class="seg" role="group" aria-label="Mode">

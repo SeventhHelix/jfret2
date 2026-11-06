@@ -6,7 +6,8 @@ import { Toolbar } from './Toolbar';
 import { TabRoll } from './TabRoll';
 import { useKeyboard } from './keyboard';
 import { ImportDialog, isGpFile } from './ImportDialog';
-import { editMode, errorMsg, importFile } from '../state/store';
+import type { JSX } from 'preact';
+import { editMode, errorMsg, importFile, view } from '../state/store';
 
 /** Dropping a Guitar Pro file anywhere on the page opens the import dialog. */
 function useFileDrop() {
@@ -30,7 +31,8 @@ export function App() {
   useKeyboard();
   useFileDrop();
   return (
-    <div class="app">
+    // Size: the page widens with it (1400px at 100%), so big screens use their side space.
+    <div class="app" style={{ '--z': view.value.zoom, maxWidth: 1400 * view.value.zoom } as JSX.CSSProperties}>
       {importFile.value && <ImportDialog file={importFile.value} />}
       {errorMsg.value && <div class="error" onClick={() => { errorMsg.value = null; }}>{errorMsg.value} (click to dismiss)</div>}
       <Transport />

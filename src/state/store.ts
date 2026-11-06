@@ -48,6 +48,7 @@ export const errorMsg = signal<string | null>(null);
 export type ColourRange = 'riff' | 'bar' | 'neck';
 export type ViewOpts = {
   lookAhead: boolean; nextRing: boolean; motion: boolean; colour: boolean; colourRange: ColourRange; flow: boolean; flowGrouping: FlowGrouping; hand: boolean;
+  zoom: number; // Size: scales the tab and fretboard (and the page width) for big screens
 };
 // Sound (instrument, metronome sound, volumes): per-viewer, kept in localStorage.
 const SOUND_KEY = 'jfret:sound';
@@ -71,9 +72,19 @@ export function setSoundOpts(patch: Partial<SoundSettings>) {
 }
 
 const VIEW_KEY = 'jfret:view';
+/** Size steps for the tab and fretboard. */
+export const SIZES = [0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2];
+export function stepSize(d: 1 | -1) {
+  const i = SIZES.indexOf(view.value.zoom);
+  setView({ zoom: SIZES[Math.min(SIZES.length - 1, Math.max(0, (i < 0 ? 2 : i) + d))] });
+}
 function loadView(): ViewOpts {
-  const defaults: ViewOpts = { lookAhead: true, nextRing: true, motion: true, colour: true, colourRange: 'riff', flow: true, flowGrouping: 'none', hand: false };
-  try { return { ...defaults, ...JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') }; } catch { return defaults; }
+  const defaults: ViewOpts = { lookAhead: true, nextRing: true, motion: true, colour: true, colourRange: 'riff', flow: true, flowGrouping: 'none', hand: false, zoom: 1 };
+  try {
+    const v = { ...defaults, ...JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') };
+    if (!SIZES.includes(v.zoom)) v.zoom = 1;
+    return v;
+  } catch { return defaults; }
 }
 export const view = signal<ViewOpts>(loadView());
 effect(() => { try { localStorage.setItem(VIEW_KEY, JSON.stringify(view.value)); } catch { /* ignore */ } });

@@ -54,7 +54,7 @@ button.play { min-width: 92px; font-weight: 600; }
 .roll-loop { position: absolute; top: 0; bottom: 0; background: #ffb0201c; pointer-events: none; }
 .roll-marquee { position: absolute; border: 1px dashed var(--sel); background: #7dd3fc22; pointer-events: none; }
 
-.tv { padding: 6px; max-height: min(486px, 50vh); overflow-y: auto; overscroll-behavior: contain; } /* about 3 lines of tab; scrolls, follows the playhead */
+.tv { padding: 6px; max-height: min(calc(486px * var(--z, 1)), calc(50vh * var(--z, 1)), 85vh); overflow-y: auto; overscroll-behavior: contain; } /* about 3 lines of tab; scrolls, follows the playhead */
 .tv svg { display: block; cursor: pointer; user-select: none; touch-action: none; }
 .tv-staff { stroke: var(--line-strong); stroke-width: 1; }
 .tv-bar { stroke: var(--muted); stroke-width: 1; }
@@ -259,3 +259,10 @@ button:disabled { opacity: 0.45; cursor: default; }
 .tv-tech-txt.pm { text-anchor: start; font-size: 9px; }
 .tech-row button { font-size: 12px; padding: 3px 9px; }
 .tech-what { font-size: 12px; }
+
+/* Size control (header) and what it scales: the tab draws itself scaled; the fretboard uses CSS zoom */
+.size-ctl { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.size-ctl button { border: none; border-radius: 0; background: transparent; padding: 4px 9px; }
+.size-ctl button:disabled { opacity: 0.35; }
+.size-ctl .size-val { min-width: 48px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.fb-wrap { zoom: var(--z, 1); }

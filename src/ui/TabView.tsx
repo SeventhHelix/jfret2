@@ -2,7 +2,7 @@ import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { barTicks, beatTicks, songEndTick } from '../model/song';
 import { GAP, HEAD, LABEL_Y, PAD, STAFF_H, drawBar } from './tabDraw';
-import { cursor, editMode, grid, hotIds, loop, loopOn, placeCursor, playhead, playing, seek, selection, song } from '../state/store';
+import { cursor, editMode, grid, view, hotIds, loop, loopOn, placeCursor, playhead, playing, seek, selection, song } from '../state/store';
 
 const LEFT = 36;      // room for the "TAB" label
 const TOP = HEAD;     // staff top within a row (labels and technique marks sit above)
@@ -23,12 +23,15 @@ export function TabView() {
     return () => ro.disconnect();
   }, []);
 
+  // Size setting: the tab is laid out at width / z and drawn scaled up, so fewer, bigger bars fit a line.
+  const z = view.value.zoom;
+  const lw = w / z;
   const bar = barTicks(s.timeSig);
   const beat = beatTicks(s.timeSig);
   // In edit mode, leave room for the insert cursor so it can sit at the start of a fresh bar.
   const nBars = Math.max(1, Math.ceil(songEndTick(s) / bar), editMode.value ? Math.floor(cursor.value / bar) + 1 : 0);
-  const perLine = Math.max(1, Math.floor((w - LEFT) / MIN_BAR_W));
-  const barW = (w - LEFT) / perLine;
+  const perLine = Math.max(1, Math.floor((lw - LEFT) / MIN_BAR_W));
+  const barW = (lw - LEFT) / perLine;
   const lines = Math.ceil(nBars / perLine);
   const height = lines * ROW_H + 8;
 
@@ -48,7 +51,7 @@ export function TabView() {
   const snap = (t: number) => Math.round(t / grid.value) * grid.value;
   const local = (e: PointerEvent) => {
     const r = (e.currentTarget as SVGElement).getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    return { x: (e.clientX - r.left) / z, y: (e.clientY - r.top) / z };
   };
 
   const onDown = (e: PointerEvent) => {
@@ -127,12 +130,12 @@ export function TabView() {
   useEffect(() => {
     const el = ref.current;
     if (!el || !showHead) return;
-    const top = headLine * ROW_H, bottom = top + ROW_H;
+    const top = headLine * ROW_H * z, bottom = top + ROW_H * z;
     const visible = top >= el.scrollTop && bottom <= el.scrollTop + el.clientHeight;
     if (isPlaying ? Math.abs(el.scrollTop - top) > 2 : !visible) {
       el.scrollTo({ top, behavior: isPlaying ? 'smooth' : 'auto' });
     }
-  }, [headLine, isPlaying, perLine]);
+  }, [headLine, isPlaying, perLine, z]);
 
   return (
     <div class="panel tv" ref={ref}>
@@ -143,7 +146,7 @@ export function TabView() {
             : 'This riff is empty. Switch to Edit to start one.'}
         </div>
       ) : (
-      <svg width={w} height={height} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+      <svg width={w} height={height * z} viewBox={`0 0 ${lw} ${height}`} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
         {lp && shade(lp.start, lp.end, 'tv-loop')}
         {dragLoop && shade(Math.min(dragLoop.a, dragLoop.b), Math.max(dragLoop.a, dragLoop.b), 'tv-loop preview')}
         {els}
