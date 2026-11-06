@@ -1,18 +1,19 @@
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { MAX_FRET, Note, STRINGS, TUNINGS, barTicks, beatTicks, noteName, notesInRange, pitchOf } from '../model/song';
 import {
   cursor, cursorIds, editMode, fretMode, guide, guideRoot, guideScale, hotIds, insertNote, nextIds, playhead, playing, previewNote,
   setGuide, softIds, softSource,
-  setView, song, toggleView, undo, view,
+  layout, setView, song, toggleView, undo, view,
 } from '../state/store';
 import { intervalHue, noteHue } from './colors';
+import { fretWidth } from '../model/layout';
 import { FlowGrouping, FlowPt, groupLinks } from '../model/flow';
 import { PITCH_NAMES, SCALE_NAMES, ScaleId, guessRoot, intervalName, pc } from '../model/theory';
 
 const ROW_H = 52;
 const OPEN_W = 52;
-const FRET_W = 64;
+let FRET_W = 64; // set each render from the View menu's Neck mode (the helpers below read it)
 const SINGLE_DOTS = [3, 5, 7, 9, 15, 17, 19, 21];
 const DOUBLE_DOTS = [12, 24];
 
@@ -48,6 +49,17 @@ export function Fretboard() {
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
   }, []);
+  // The neck's visible width (in its own, zoomed coordinates), for fitting frets to it.
+  const [visW, setVisW] = useState(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setVisW(el.clientWidth);
+    const ro = new ResizeObserver(() => setVisW(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const lay = layout.value;
   const s = song.value;
   const edit = editMode.value;
   const opts = view.value;
@@ -115,6 +127,10 @@ export function Fretboard() {
   // Source notes: whatever the neck is focused on (bar / selection / loop); in Live mode, the current bar.
   const barStartT = Math.floor(t / bar) * bar;
   const flowSrc = src === 'live' ? notesInRange(s.notes, barStartT, barStartT + bar) : s.notes.filter(n => soft.has(n.id));
+  const focusLo = flowSrc.length ? Math.min(...flowSrc.map(n => n.fret)) : -1;
+  const focusHi = flowSrc.length ? Math.max(...flowSrc.map(n => n.fret)) : -1;
+  // Fret width: fixed and scrolling, the whole neck fitted, or the frets in focus fitted to the panel.
+  FRET_W = fretWidth(lay.fbNeck, visW, focusLo, focusHi, OPEN_W, MAX_FRET);
   const cx = (f: number) => (f === 0 ? OPEN_W / 2 : midX(f));
   type Pt = FlowPt & { x: number; y: number; end: number; hue: number };
   const pts: Pt[] = [...new Set(flowSrc.map(n => n.start))].sort((a, b) => a - b).map(st => {
@@ -180,16 +196,16 @@ export function Fretboard() {
   })() : null;
 
   // Follow the music: keep the focused notes' frets in view (the neck is wider than most screens).
-  const focusLo = flowSrc.length ? Math.min(...flowSrc.map(n => n.fret)) : -1;
-  const focusHi = flowSrc.length ? Math.max(...flowSrc.map(n => n.fret)) : -1;
+  const fretW = FRET_W;
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || focusLo < 0) return;
     const left = cellX(focusLo) - 8, right = cellX(focusHi) + cellW(focusHi) + 8;
     if (left >= el.scrollLeft && right <= el.scrollLeft + el.clientWidth) return; // already visible
     const target = right - left > el.clientWidth ? left : (left + right) / 2 - el.clientWidth / 2;
-    el.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
-  }, [focusLo, focusHi]);
+    // Zoom to bar resizes the frets in one step, so jump there too; scrolling a fixed neck glides.
+    el.scrollTo({ left: Math.max(0, target), behavior: lay.fbNeck === 'bar' ? 'auto' : 'smooth' });
+  }, [focusLo, focusHi, fretW]);
 
   const barNo = Math.floor(t / bar) + 1;
   const label = { bar: `Bar ${barNo}`, selection: 'Selection', loop: 'Loop', live: 'Live' }[src];
@@ -224,16 +240,16 @@ export function Fretboard() {
   };
 
   return (
-    <div class="panel">
-      <div class="row" style={{ marginBottom: 8 }}>
+    <div class="panel" style={{ '--fbz': lay.fbZoom } as JSX.CSSProperties}>
+      <div class="row fb-head" style={{ marginBottom: 8 }}>
         <strong>Fretboard</strong>
-        <span class="muted">{label}</span>
+        <span class="muted fb-src">{label}</span>
         {edit && (
           <span class="cursor-badge" title="Where the next fret click goes. Click a note in the tab or roll to insert in front of it.">
             Next note → bar {cBar}, {cBeatLabel}
           </span>
         )}
-        {edit && <button class="mini" onClick={undo} title="Undo (Ctrl+Z). Backspace removes the note you just entered.">↶ Undo</button>}
+        {edit && <button class="mini fb-undo" onClick={undo} title="Undo (Ctrl+Z). Backspace removes the note you just entered.">↶ Undo</button>}
         <span class="spacer" />
         <span class="legend muted">
           <i class="lg hot" /> playing{opts.nextRing && <> <i class="lg next" /> next</>}

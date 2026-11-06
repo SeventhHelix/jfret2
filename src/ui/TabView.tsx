@@ -2,7 +2,7 @@ import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { barTicks, beatTicks, songEndTick } from '../model/song';
 import { GAP, HEAD, LABEL_Y, PAD, STAFF_H, drawBar } from './tabDraw';
-import { cursor, editMode, grid, view, hotIds, loop, loopOn, placeCursor, playhead, playing, seek, selection, song } from '../state/store';
+import { cursor, editMode, grid, layout, hotIds, loop, loopOn, placeCursor, playhead, playing, seek, selection, song } from '../state/store';
 
 const LEFT = 36;      // room for the "TAB" label
 const TOP = HEAD;     // staff top within a row (labels and technique marks sit above)
@@ -24,13 +24,14 @@ export function TabView() {
   }, []);
 
   // Size setting: the tab is laid out at width / z and drawn scaled up, so fewer, bigger bars fit a line.
-  const z = view.value.zoom;
+  const { tabZoom: z, tabBars, tabLines } = layout.value;
   const lw = w / z;
   const bar = barTicks(s.timeSig);
   const beat = beatTicks(s.timeSig);
   // In edit mode, leave room for the insert cursor so it can sit at the start of a fresh bar.
   const nBars = Math.max(1, Math.ceil(songEndTick(s) / bar), editMode.value ? Math.floor(cursor.value / bar) + 1 : 0);
-  const perLine = Math.max(1, Math.floor((lw - LEFT) / MIN_BAR_W));
+  // Bars per line: the View setting, or as many as fit.
+  const perLine = tabBars || Math.max(1, Math.floor((lw - LEFT) / MIN_BAR_W));
   const barW = (lw - LEFT) / perLine;
   const lines = Math.ceil(nBars / perLine);
   const height = lines * ROW_H + 8;
@@ -138,7 +139,8 @@ export function TabView() {
   }, [headLine, isPlaying, perLine, z]);
 
   return (
-    <div class="panel tv" ref={ref}>
+    // Lines shown: the pane is that many lines tall and scrolls (follows the playhead); 0 = show them all.
+    <div class="panel tv" ref={ref} style={tabLines ? { maxHeight: `min(${Math.round(tabLines * ROW_H * z + 14)}px, 85vh)` } : { maxHeight: 'none' }}>
       {!s.notes.length ? (
         <div class="tv-empty">
           {editMode.value

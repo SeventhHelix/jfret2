@@ -6,8 +6,9 @@ import { Toolbar } from './Toolbar';
 import { TabRoll } from './TabRoll';
 import { useKeyboard } from './keyboard';
 import { ImportDialog, isGpFile } from './ImportDialog';
-import type { JSX } from 'preact';
-import { editMode, errorMsg, importFile, view } from '../state/store';
+import { Fragment } from 'preact';
+import type { PanelId } from '../model/layout';
+import { editMode, errorMsg, importFile, layout } from '../state/store';
 
 /** Dropping a Guitar Pro file anywhere on the page opens the import dialog. */
 function useFileDrop() {
@@ -30,15 +31,23 @@ function useFileDrop() {
 export function App() {
   useKeyboard();
   useFileDrop();
+  const l = layout.value;
+  // Panels in the order and visibility chosen in the View menu. The editor only exists in Edit mode.
+  const panel = (id: PanelId) =>
+    id === 'tab' ? <TabView /> : id === 'fretboard' ? <Fretboard /> : editMode.value ? <Editor /> : null;
   return (
-    // Size: the page widens with it (1400px at 100%), so big screens use their side space.
-    <div class="app" style={{ '--z': view.value.zoom, maxWidth: 1400 * view.value.zoom } as JSX.CSSProperties}>
+    <div class="app" style={l.fullWidth ? { maxWidth: 'none' } : undefined}>
       {importFile.value && <ImportDialog file={importFile.value} />}
       {errorMsg.value && <div class="error" onClick={() => { errorMsg.value = null; }}>{errorMsg.value} (click to dismiss)</div>}
       <Transport />
-      <TabView />
-      <Fretboard />
-      {editMode.value && (
+      {l.panels.filter(p => p.on).map(p => <Fragment key={p.id}>{panel(p.id)}</Fragment>)}
+      {!l.panels.some(p => p.on) && <p class="muted empty-view">All panels are hidden. Turn some back on in <b>▦ View</b>.</p>}
+    </div>
+  );
+}
+
+function Editor() {
+  return (
         <>
           <Toolbar />
           <TabRoll />
@@ -60,7 +69,5 @@ export function App() {
             <span>Drop a Guitar Pro file on the page (or <b>Import…</b>) to bring in part of a song</span>
           </p>
         </>
-      )}
-    </div>
   );
 }

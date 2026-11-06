@@ -4,6 +4,7 @@ import { SCALES, ScaleId, guessRoot, scalePitchClasses, songPitchClasses } from 
 import { addNote, copyNotes, deleteNotes, duplicateNotes, NewNote, pasteNotes, setDuration, shiftFrets, shiftFrom } from '../model/ops';
 import { History } from '../model/history';
 import type { FlowGrouping } from '../model/flow';
+import { Layout, PanelId, readLayout } from '../model/layout';
 import { decodeSong, encodeSong } from '../codec/codec';
 import { Practice, formatPractice, pageTitle, parsePractice } from '../codec/practice';
 import { Player } from '../audio/player';
@@ -48,7 +49,6 @@ export const errorMsg = signal<string | null>(null);
 export type ColourRange = 'riff' | 'bar' | 'neck';
 export type ViewOpts = {
   lookAhead: boolean; nextRing: boolean; motion: boolean; colour: boolean; colourRange: ColourRange; flow: boolean; flowGrouping: FlowGrouping; hand: boolean;
-  zoom: number; // Size: scales the tab and fretboard (and the page width) for big screens
 };
 // Sound (instrument, metronome sound, volumes): per-viewer, kept in localStorage.
 const SOUND_KEY = 'jfret:sound';
@@ -72,17 +72,10 @@ export function setSoundOpts(patch: Partial<SoundSettings>) {
 }
 
 const VIEW_KEY = 'jfret:view';
-/** Size steps for the tab and fretboard. */
-export const SIZES = [0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2];
-export function stepSize(d: 1 | -1) {
-  const i = SIZES.indexOf(view.value.zoom);
-  setView({ zoom: SIZES[Math.min(SIZES.length - 1, Math.max(0, (i < 0 ? 2 : i) + d))] });
-}
 function loadView(): ViewOpts {
-  const defaults: ViewOpts = { lookAhead: true, nextRing: true, motion: true, colour: true, colourRange: 'riff', flow: true, flowGrouping: 'none', hand: false, zoom: 1 };
+  const defaults: ViewOpts = { lookAhead: true, nextRing: true, motion: true, colour: true, colourRange: 'riff', flow: true, flowGrouping: 'none', hand: false };
   try {
-    const v = { ...defaults, ...JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') };
-    if (!SIZES.includes(v.zoom)) v.zoom = 1;
+    const { zoom: _old, ...v } = { ...defaults, ...JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') };
     return v;
   } catch { return defaults; }
 }
@@ -91,6 +84,23 @@ effect(() => { try { localStorage.setItem(VIEW_KEY, JSON.stringify(view.value));
 export function setView(patch: Partial<ViewOpts>) {
   view.value = { ...view.value, ...patch };
 }
+// Layout (View menu): panels, order, page width, per-panel sizing. Phones (narrow screens) get their own defaults.
+const LAYOUT_KEY = 'jfret:layout';
+export const isPhone = () => typeof matchMedia === 'function' && matchMedia('(max-width: 700px)').matches;
+function loadLayout(): Layout {
+  const read = (k: string) => { try { return JSON.parse(localStorage.getItem(k) ?? 'null'); } catch { return null; } };
+  const saved = read(LAYOUT_KEY);
+  if (saved) return readLayout(saved, isPhone());
+  const old = read(VIEW_KEY); // the old single Size lived with the Display options
+  return readLayout(old && typeof old.zoom === 'number' ? { zoom: old.zoom } : {}, isPhone());
+}
+export const layout = signal<Layout>(loadLayout());
+effect(() => { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout.value)); } catch { /* ignore */ } });
+export function setLayout(patch: Partial<Layout>) {
+  layout.value = { ...layout.value, ...patch };
+}
+export const panelOn = (id: PanelId) => layout.value.panels.some(p => p.id === id && p.on);
+
 export function toggleView(k: 'lookAhead' | 'nextRing' | 'motion' | 'colour' | 'flow' | 'hand') {
   view.value = { ...view.value, [k]: !view.value[k] };
 }

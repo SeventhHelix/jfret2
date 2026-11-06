@@ -54,7 +54,7 @@ button.play { min-width: 92px; font-weight: 600; }
 .roll-loop { position: absolute; top: 0; bottom: 0; background: #ffb0201c; pointer-events: none; }
 .roll-marquee { position: absolute; border: 1px dashed var(--sel); background: #7dd3fc22; pointer-events: none; }
 
-.tv { padding: 6px; max-height: min(calc(486px * var(--z, 1)), calc(50vh * var(--z, 1)), 85vh); overflow-y: auto; overscroll-behavior: contain; } /* about 3 lines of tab; scrolls, follows the playhead */
+.tv { padding: 6px; overflow-y: auto; overscroll-behavior: contain; } /* about 3 lines of tab; scrolls, follows the playhead */
 .tv svg { display: block; cursor: pointer; user-select: none; touch-action: none; }
 .tv-staff { stroke: var(--line-strong); stroke-width: 1; }
 .tv-bar { stroke: var(--muted); stroke-width: 1; }
@@ -260,9 +260,39 @@ button:disabled { opacity: 0.45; cursor: default; }
 .tech-row button { font-size: 12px; padding: 3px 9px; }
 .tech-what { font-size: 12px; }
 
-/* Size control (header) and what it scales: the tab draws itself scaled; the fretboard uses CSS zoom */
-.size-ctl { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.size-ctl button { border: none; border-radius: 0; background: transparent; padding: 4px 9px; }
-.size-ctl button:disabled { opacity: 0.35; }
-.size-ctl .size-val { min-width: 48px; font-variant-numeric: tabular-nums; color: var(--muted); }
-.fb-wrap { zoom: var(--z, 1); }
+/* fretboard Size (View menu) */
+.fb-wrap { zoom: var(--fbz, 1); }
+
+/* View menu */
+.view-menu .opts-pop { width: 300px; }
+.vm-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 4px; }
+.vm-panel { display: flex; align-items: center; justify-content: space-between; }
+.vm-move { display: inline-flex; gap: 2px; }
+.vm-move button { padding: 1px 7px; font-size: 12px; }
+.empty-view { text-align: center; padding: 24px; }
+
+/* ---- Phones ---- */
+@media (pointer: coarse) {
+  .tv svg { touch-action: pan-y; } /* let a finger scroll the tab pane (drag-to-loop is a mouse thing) */
+}
+@media (max-width: 700px) {
+  .app { padding: 8px; gap: 8px; }
+  .panel { padding: 8px; border-radius: 8px; }
+  .header { box-shadow: 0 0 0 4px var(--bg), 0 6px 14px #000a; }
+  .header .row { gap: 5px; }
+  .title-input { flex: 1 1 100%; min-width: 0; }
+  .header .spacer { display: none; }
+  .speed input[type=range] { width: 90px; }
+  /* menus open as a sheet across the screen instead of off its edge */
+  .opts-pop, .opts.sound .opts-pop, .view-menu .opts-pop {
+    position: fixed; left: 8px; right: 8px; top: 64px; width: auto; max-height: calc(100vh - 80px); overflow-y: auto;
+  }
+  .hints { display: none; }
+  .fb-names { width: 16px; font-size: 12px; }
+  .header button, .header select, .header input:not([type=range]) { padding: 3px 7px; font-size: 13px; }
+  .header summary { font-size: 13px; }
+  .title-input { font-size: 15px; padding: 2px 4px; }
+  .legend, .cursor-badge, .fb-undo, .fb-src { display: none; }
+  .fb-head { flex-wrap: nowrap; gap: 6px; }
+  .fb-head .seg.small button, .fb-head summary { font-size: 11px; padding: 3px 7px; }
+}
