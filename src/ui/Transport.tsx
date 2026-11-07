@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Song, TUNINGS, TUNING_IDS, TuningId } from '../model/song';
 import { GP_ACCEPT } from './ImportDialog';
-import { SoundMenu } from './SoundMenu';
-import { ViewMenu } from './ViewMenu';
+import { SettingsMenu } from './Settings';
 import {
-  commit, countIn, editMode, importFile, panelOn, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
+  commit, editMode, importFile, panelOn, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
   shareUrl, song, speed, togglePlay, undo,
 } from '../state/store';
 
@@ -36,26 +35,19 @@ export function Transport() {
           onInput={e => setTitle(e.currentTarget.value)} onChange={e => setMeta({ title: e.currentTarget.value })} />
         <div class="group">
           <button onClick={rewind} title="Back to start" aria-label="Back to start">⏮</button>
-          <button class="play" onClick={togglePlay} title="Play / pause (Space)">{playing.value ? '⏸ Pause' : '▶ Play'}</button>
-          <button class={loopOn.value ? 'on' : ''} onClick={toggleLoop} title="Loop the selected notes, or the current bar. Drag across the tab to loop any range.">⟳ Loop</button>
+          <button class="play" onClick={togglePlay} title="Play / pause (Space)">{playing.value ? '⏸' : '▶'}<span class="lbl">{playing.value ? ' Pause' : ' Play'}</span></button>
+          <button class={loopOn.value ? 'on' : ''} onClick={toggleLoop} title="Loop the selected notes, or the current bar. Drag across the tab to loop any range.">⟳<span class="lbl"> Loop</span></button>
         </div>
         <label class="speed" title="Playback speed (doesn't change the saved tempo)">
-          <span class="muted">Speed</span>
           <input type="range" min={25} max={150} step={5} value={pct} onInput={e => { speed.value = Number(e.currentTarget.value) / 100; }} />
-          <button class="speed-val" onClick={() => { speed.value = 1; }} title="Reset to 100%">{pct}%</button>
+          <button class="speed-val" onClick={() => { speed.value = 1; }} title="Playback speed. Click to reset to 100%">{pct}%</button>
         </label>
-        <div class="group">
-          <button class={metronome.value ? 'on' : ''} onClick={() => { metronome.value = !metronome.value; }} title="Metronome click">Click</button>
-          <button class={countIn.value ? 'on' : ''} onClick={() => { countIn.value = !countIn.value; }}>Count-in</button>
-        </div>
-        <SoundMenu />
-        <ViewMenu />
+        <button class={metronome.value ? 'on' : ''} onClick={() => { metronome.value = !metronome.value; }} title="Metronome click (count-in and sounds are in ⚙ Settings)">Click</button>
         <span class="spacer" />
-        <button onClick={copy} title="Copy a link to this riff">{copied ? '✓ Copied' : 'Share'}</button>
-        <div class="seg" role="group" aria-label="Mode">
-          <button class={editMode.value ? 'on' : ''} onClick={() => setEdit(true)}>✎ Edit</button>
-          <button class={editMode.value ? '' : 'on'} onClick={() => setEdit(false)}>♫ Practice</button>
-        </div>
+        <SettingsMenu />
+        <button onClick={copy} title="Copy a link to this riff">{copied ? '✓' : '⤴'}<span class="lbl">{copied ? ' Copied' : ' Share'}</span></button>
+        <button class={editMode.value ? 'on' : ''} onClick={() => setEdit(!editMode.value)}
+          title={editMode.value ? 'Editing: click frets to add notes. Click to switch to practice (read-only).' : 'Practice view. Click to edit this riff.'}>✎<span class="lbl"> Edit</span></button>
       </div>
       {editMode.value && panelOn('editor') && ( // the editing controls go with the Editor panel
         <div class="row sub">

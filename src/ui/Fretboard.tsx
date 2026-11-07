@@ -4,11 +4,11 @@ import { MAX_FRET, Note, STRINGS, TUNINGS, barTicks, beatTicks, noteName, notesI
 import {
   cursor, cursorIds, editMode, fretMode, guide, guideRoot, guideScale, hotIds, insertNote, nextIds, playhead, playing, previewNote,
   setGuide, softIds, softSource,
-  layout, setView, song, toggleView, undo, view,
+  layout, song, view,
 } from '../state/store';
 import { intervalHue, noteHue } from './colors';
 import { fretWidth } from '../model/layout';
-import { FlowGrouping, FlowPt, groupLinks } from '../model/flow';
+import { FlowPt, groupLinks } from '../model/flow';
 import { PITCH_NAMES, SCALE_NAMES, ScaleId, guessRoot, intervalName, pc } from '../model/theory';
 
 const ROW_H = 52;
@@ -20,13 +20,6 @@ const DOUBLE_DOTS = [12, 24];
 const cellX = (f: number) => (f === 0 ? 0 : OPEN_W + (f - 1) * FRET_W);
 const cellW = (f: number) => (f === 0 ? OPEN_W : FRET_W);
 const midX = (f: number) => OPEN_W + (f - 0.5) * FRET_W;
-const FLOW_GROUPINGS: [FlowGrouping, string, string][] = [
-  ['none', 'None', 'One unbroken line'],
-  ['beat', 'Beat', 'Groups by note value, on the beat: quarters 2, 8ths 4, triplets 3, 16ths 6'],
-  ['strings', 'Strings', 'New group when you move to another string after 2+ notes on one'],
-  ['contour', 'Contour', 'New group at each peak and low point after a run of 3+ notes'],
-  ['arc', 'Arc', 'New group at each low point only, so an up-and-back sweep is one shape'],
-];
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
 type Cell = {
@@ -38,17 +31,7 @@ type Cell = {
 };
 
 export function Fretboard() {
-  // Close the Display menu on any click outside it.
-  const optsRef = useRef<HTMLDetailsElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const close = (e: PointerEvent) => {
-      const el = optsRef.current;
-      if (el?.open && !el.contains(e.target as Node)) el.open = false;
-    };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, []);
   // The neck's visible width (in its own, zoomed coordinates), for fitting frets to it.
   const [visW, setVisW] = useState(0);
   useEffect(() => {
@@ -208,7 +191,6 @@ export function Fretboard() {
   }, [focusLo, focusHi, fretW]);
 
   const barNo = Math.floor(t / bar) + 1;
-  const label = { bar: `Bar ${barNo}`, selection: 'Selection', loop: 'Loop', live: 'Live' }[src];
   const cBar = Math.floor(cursor.value / bar) + 1;
   const cBeat = (cursor.value % bar) / beat + 1;
   const cBeatLabel = Number.isInteger(cBeat) ? `beat ${cBeat}` : `beat ${Math.floor(cBeat)}+`;
@@ -241,100 +223,42 @@ export function Fretboard() {
 
   return (
     <div class="panel" style={{ '--fbz': lay.fbZoom } as JSX.CSSProperties}>
-      <div class="row fb-head" style={{ marginBottom: 8 }}>
-        <strong>Fretboard</strong>
-        <span class="muted fb-src">{label}</span>
-        {edit && (
-          <span class="cursor-badge" title="Where the next fret click goes. Click a note in the tab or roll to insert in front of it.">
-            Next note → bar {cBar}, {cBeatLabel}
-          </span>
-        )}
-        {edit && <button class="mini fb-undo" onClick={undo} title="Undo (Ctrl+Z). Backspace removes the note you just entered.">↶ Undo</button>}
-        <span class="spacer" />
-        <span class="legend muted">
-          <i class="lg hot" /> playing{opts.nextRing && <> <i class="lg next" /> next</>}
-        </span>
-        <details class="opts" ref={optsRef}>
-          <summary title="Display options (saved in this browser)">⚙ Display</summary>
-          <div class="opts-pop">
-            <label><input type="checkbox" checked={opts.lookAhead} onChange={() => toggleView('lookAhead')} />
-              <span><b>Look-ahead</b> fade in the next bar's notes as the bar runs out</span></label>
-            <label><input type="checkbox" checked={opts.nextRing} onChange={() => toggleView('nextRing')} />
-              <span><b>Next-note ring</b> dashed outline on the note that comes next</span></label>
-            <label><input type="checkbox" checked={opts.motion} onChange={() => toggleView('motion')} />
-              <span><b>Motion</b> upcoming notes grow in, far-off and played notes fade</span></label>
-            <label><input type="checkbox" checked={opts.flow} onChange={() => toggleView('flow')} />
-              <span><b>Flow path</b> a curve through the notes in playing order, with a dot riding it during playback</span></label>
-            <div class={`opts-sub${opts.flow ? '' : ' off'}`}>
-              <span class="muted">Grouping</span>
-              <span class="seg small" role="group" aria-label="Flow grouping">
-                {FLOW_GROUPINGS.map(([k, label, tip]) => (
-                  <button key={k} class={opts.flowGrouping === k ? 'on' : ''} onClick={() => setView({ flowGrouping: k })} title={tip}>
-                    {label}
-                  </button>
-                ))}
-              </span>
-            </div>
-            <label><input type="checkbox" checked={opts.hand} onChange={() => toggleView('hand')} />
-              <span><b>Hand position</b> a box around the frets the bar uses</span></label>
-            <label><input type="checkbox" checked={opts.colour} onChange={() => toggleView('colour')} />
-              <span><b>Colour by position</b> same colours on the neck and the timeline</span></label>
-            <div class={`opts-sub${opts.colour ? '' : ' off'}`}>
-              <span class="muted">Colour range</span>
-              <span class="seg small" role="group" aria-label="Colour range">
-                {([['riff', 'Riff'], ['bar', 'Per bar'], ['neck', 'Whole neck']] as const).map(([k, label]) => (
-                  <button key={k} class={opts.colourRange === k ? 'on' : ''} onClick={() => setView({ colourRange: k })}
-                    title={k === 'riff' ? "Lowest to highest fret in the whole riff" : k === 'bar' ? "Each bar's own lowest to highest fret" : 'Frets 0-14 of the neck'}>
-                    {label}
-                  </button>
-                ))}
-              </span>
-            </div>
-          </div>
-        </details>
-        <span class="seg small" role="group" aria-label="Fretboard mode">
-          <button class={fretMode.value === 'live' ? 'on' : ''} onClick={() => { fretMode.value = 'live'; }}>Live</button>
-          <button class={fretMode.value === 'bar' ? 'on' : ''} onClick={() => { fretMode.value = 'bar'; }}>Bar / selection</button>
-        </span>
-      </div>
-      <div class="row guide-row">
-        <button class={`chip${g.on ? ' on' : ''}`} onClick={() => setGuide({ on: !g.on })}
-          title="Show a scale on the neck with interval labels, and flag riff notes outside it">Scale guide</button>
-        {g.on && (
-          <>
-            <label class="muted">
-              Root{' '}
-              <select value={g.root === null ? 'auto' : String(g.root)}
-                onChange={e => { const v = e.currentTarget.value; setGuide({ root: v === 'auto' ? null : Number(v) }); e.currentTarget.blur(); }}>
-                <option value="auto">Auto ({PITCH_NAMES[guessRoot(s)]})</option>
-                {PITCH_NAMES.map((nm, i) => <option key={nm} value={String(i)}>{nm}</option>)}
-              </select>
-            </label>
-            <label class="muted">
-              Scale{' '}
-              <select value={g.scale} onChange={e => { setGuide({ scale: e.currentTarget.value as ScaleId }); e.currentTarget.blur(); }}>
-                {(Object.keys(SCALE_NAMES) as ScaleId[]).map(id => <option key={id} value={id}>{SCALE_NAMES[id]}</option>)}
-              </select>
-            </label>
-            <span class="scale-notes">
-              {[...scale!].sort((a, b) => pc(a - root) - pc(b - root)).map(p => (
-                <span key={p} class={p === root ? 'sn root' : 'sn'} style={{ '--ic': intervalHue(p - root) } as JSX.CSSProperties}>
-                  {PITCH_NAMES[p]}<small>{intervalName(p, root)}</small>
-                </span>
-              ))}
+      {/* Only what's useful right now: where the next note goes while editing, and the scale while the guide is on. */}
+      {(edit || g.on) && (
+        <div class="row fb-info">
+          {edit && (
+            <span class="cursor-badge" title="Where the next fret click goes. Click a note in the tab or roll to insert in front of it.">
+              Next note → bar {cBar}, {cBeatLabel}
             </span>
-          </>
-        )}
-        <span class="spacer" />
-        <span class="muted">Labels</span>
-        <span class="seg small" role="group" aria-label="Note labels">
-          {(['fret', 'note', 'interval'] as const).map(m => (
-            <button key={m} class={g.labels === m ? 'on' : ''} onClick={() => setGuide({ labels: m })}>
-              {m === 'fret' ? 'Fret' : m === 'note' ? 'Note' : 'Interval'}
-            </button>
-          ))}
-        </span>
-      </div>
+          )}
+          {g.on && (
+            <>
+              <label class="muted">
+                Root{' '}
+                <select value={g.root === null ? 'auto' : String(g.root)}
+                  onChange={e => { const v = e.currentTarget.value; setGuide({ root: v === 'auto' ? null : Number(v) }); e.currentTarget.blur(); }}>
+                  <option value="auto">Auto ({PITCH_NAMES[guessRoot(s)]})</option>
+                  {PITCH_NAMES.map((nm, i) => <option key={nm} value={String(i)}>{nm}</option>)}
+                </select>
+              </label>
+              <label class="muted">
+                Scale{' '}
+                <select value={g.scale} onChange={e => { setGuide({ scale: e.currentTarget.value as ScaleId }); e.currentTarget.blur(); }}>
+                  {(Object.keys(SCALE_NAMES) as ScaleId[]).map(id => <option key={id} value={id}>{SCALE_NAMES[id]}</option>)}
+                </select>
+              </label>
+              <span class="scale-notes">
+                {[...scale!].sort((a, b) => pc(a - root) - pc(b - root)).map(p => (
+                  <span key={p} class={p === root ? 'sn root' : 'sn'} style={{ '--ic': intervalHue(p - root) } as JSX.CSSProperties}>
+                    {PITCH_NAMES[p]}<small>{intervalName(p, root)}</small>
+                  </span>
+                ))}
+              </span>
+              <button class="mini" onClick={() => setGuide({ on: false })} title="Hide the scale guide">✕</button>
+            </>
+          )}
+        </div>
+      )}
       <div class="fb-wrap">
         <div class="fb-names">
           {TUNINGS[s.tuning].pitches.map((p, i) => <div key={i} style={{ height: ROW_H }}>{noteName(p)}</div>)}

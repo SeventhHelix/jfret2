@@ -5,6 +5,7 @@ export type PanelId = 'tab' | 'fretboard' | 'editor';
 export type FretNeck = 'scroll' | 'neck' | 'bar'; // fixed frets that scroll / whole neck fits / this bar's frets fit
 
 export type Layout = {
+  v: number;          // LAYOUT_V when saved
   panels: { id: PanelId; on: boolean }[]; // in display order
   fullWidth: boolean; // use the whole screen instead of 1400px
   tabZoom: number;
@@ -14,6 +15,9 @@ export type Layout = {
   fbNeck: FretNeck;
 };
 
+/** Bumped when phone defaults change enough that phones on an older saved layout should start over. */
+export const LAYOUT_V = 2;
+
 export const SIZES = [0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2];
 export const TAB_BARS = [0, 1, 2, 3, 4, 6, 8];
 export const TAB_LINES = [1, 2, 3, 4, 0];
@@ -22,14 +26,15 @@ const PANEL_IDS: PanelId[] = ['tab', 'fretboard', 'editor'];
 
 export function defaultLayout(phone: boolean): Layout {
   return phone
-    ? { panels: [{ id: 'tab', on: true }, { id: 'fretboard', on: true }, { id: 'editor', on: false }],
+    ? { v: LAYOUT_V, panels: [{ id: 'tab', on: true }, { id: 'fretboard', on: true }, { id: 'editor', on: false }],
         fullWidth: false, tabZoom: 0.9, tabBars: 0, tabLines: 2, fbZoom: 0.75, fbNeck: 'bar' }
-    : { panels: PANEL_IDS.map(id => ({ id, on: true })), fullWidth: false, tabZoom: 1, tabBars: 0, tabLines: 3, fbZoom: 1, fbNeck: 'scroll' };
+    : { v: LAYOUT_V, panels: PANEL_IDS.map(id => ({ id, on: true })), fullWidth: false, tabZoom: 1, tabBars: 0, tabLines: 3, fbZoom: 1, fbNeck: 'scroll' };
 }
 
 /** Saved settings -> valid Layout: unknown values fall back to the defaults; the old single Size carries over. */
 export function readLayout(raw: Record<string, unknown>, phone: boolean): Layout {
   const d = defaultLayout(phone);
+  if (phone && raw.v !== LAYOUT_V) return d; // phones on an older saved layout get the current phone defaults
   const pick = <T>(v: unknown, ok: readonly T[], dflt: T): T => (ok.includes(v as T) ? (v as T) : dflt);
   const oldZoom = pick(raw.zoom, SIZES, 0); // before panels had their own sizes, one Size scaled everything
   const panels: Layout['panels'] = [];
@@ -41,6 +46,7 @@ export function readLayout(raw: Record<string, unknown>, phone: boolean): Layout
   }
   for (const p of d.panels) if (!panels.some(q => q.id === p.id)) panels.push({ ...p });
   return {
+    v: LAYOUT_V,
     panels,
     fullWidth: typeof raw.fullWidth === 'boolean' ? raw.fullWidth : oldZoom > 1,
     tabZoom: pick(raw.tabZoom, SIZES, oldZoom || d.tabZoom),

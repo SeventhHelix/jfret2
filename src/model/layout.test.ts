@@ -22,6 +22,12 @@ describe('layout', () => {
     expect(readLayout({}, false).fullWidth).toBe(false);
   });
 
+  it('phones on an older saved layout start over with the phone defaults; desktops keep theirs', () => {
+    expect(readLayout({ tabZoom: 1.5, fbZoom: 1 }, true)).toEqual(defaultLayout(true));
+    expect(readLayout({ v: 2, tabZoom: 1.5 }, true).tabZoom).toBe(1.5);
+    expect(readLayout({ tabZoom: 1.5 }, false).tabZoom).toBe(1.5);
+  });
+
   it('moves panels up and down, not past the ends', () => {
     const l = defaultLayout(false);
     expect(movePanel(l, 'editor', -1).panels.map(p => p.id)).toEqual(['tab', 'editor', 'fretboard']);

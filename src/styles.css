@@ -118,7 +118,7 @@ kbd { display: inline-block; min-width: 18px; padding: 0 5px; border: 1px solid 
 .header .sub { padding-top: 6px; }
 .header button, .header select, .header input:not([type=range]) { padding: 3px 9px; }
 .seg button { padding: 4px 10px; }
-.title-input { width: 150px; }
+.title-input { flex: 1 1 120px; width: auto; max-width: 300px; }
 @media (max-width: 1100px) { .speed > .muted { display: none; } }
 
 /* fretboard: position colour, look-ahead ghosts, motion, order badges */
@@ -243,8 +243,15 @@ button:disabled { opacity: 0.45; cursor: default; }
 .gp-tab-sec { fill: var(--accent); font-size: 11px; font-weight: 700; }
 
 /* Sound menu (header) */
-.opts.sound summary { font-size: 13px; padding: 4px 10px; border-radius: 6px; }
-.opts.sound .opts-pop { width: 280px; left: 0; right: auto; }
+.opts.settings summary { font-size: 14px; padding: 3px 10px; border-radius: 6px; color: var(--text); }
+.opts.settings .opts-pop { width: 340px; max-height: calc(100vh - 90px); overflow-y: auto; gap: 6px; }
+.sm-sec { border-top: 1px solid var(--line); padding-top: 6px; }
+.sm-sec:first-child { border-top: none; padding-top: 0; }
+.sm-sec > summary { cursor: pointer; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4px 0; list-style: none; }
+.sm-sec > summary::before { content: '▸ '; }
+.sm-sec[open] > summary::before { content: '▾ '; }
+.sm-body { display: flex; flex-direction: column; gap: 10px; padding: 6px 0 8px; }
+.fb-info { margin-bottom: 8px; }
 .snd-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
 .snd-row select { min-width: 150px; }
 .opts-pop label.snd-vol { align-items: center; padding-left: 2px; }
@@ -264,35 +271,24 @@ button:disabled { opacity: 0.45; cursor: default; }
 .fb-wrap { zoom: var(--fbz, 1); }
 
 /* View menu */
-.view-menu .opts-pop { width: 300px; }
 .vm-head { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 4px; }
 .vm-panel { display: flex; align-items: center; justify-content: space-between; }
 .vm-move { display: inline-flex; gap: 2px; }
 .vm-move button { padding: 1px 7px; font-size: 12px; }
 .empty-view { text-align: center; padding: 24px; }
 
-/* ---- Phones ---- */
+/* ---- Narrow screens: same layout, tighter, button words become icons, menus open as a sheet ---- */
 @media (pointer: coarse) {
   .tv svg { touch-action: pan-y; } /* let a finger scroll the tab pane (drag-to-loop is a mouse thing) */
 }
 @media (max-width: 700px) {
-  .app { padding: 8px; gap: 8px; }
-  .panel { padding: 8px; border-radius: 8px; }
+  .app { padding: 6px; gap: 6px; }
+  .panel { padding: 6px; border-radius: 8px; }
   .header { box-shadow: 0 0 0 4px var(--bg), 0 6px 14px #000a; }
-  .header .row { gap: 5px; }
-  .title-input { flex: 1 1 100%; min-width: 0; }
-  .header .spacer { display: none; }
-  .speed input[type=range] { width: 90px; }
-  /* menus open as a sheet across the screen instead of off its edge */
-  .opts-pop, .opts.sound .opts-pop, .view-menu .opts-pop {
-    position: fixed; left: 8px; right: 8px; top: 64px; width: auto; max-height: calc(100vh - 80px); overflow-y: auto;
+  .lbl { display: none; }
+  .opts-pop, .opts.settings .opts-pop {
+    position: fixed; left: 8px; right: 8px; top: 56px; width: auto; max-height: calc(100vh - 72px); overflow-y: auto;
   }
   .hints { display: none; }
   .fb-names { width: 16px; font-size: 12px; }
-  .header button, .header select, .header input:not([type=range]) { padding: 3px 7px; font-size: 13px; }
-  .header summary { font-size: 13px; }
-  .title-input { font-size: 15px; padding: 2px 4px; }
-  .legend, .cursor-badge, .fb-undo, .fb-src { display: none; }
-  .fb-head { flex-wrap: nowrap; gap: 6px; }
-  .fb-head .seg.small button, .fb-head summary { font-size: 11px; padding: 3px 7px; }
 }
