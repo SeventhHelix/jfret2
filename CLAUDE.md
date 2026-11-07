@@ -53,6 +53,7 @@ src/notation/rhythm.ts duration -> display value, per-bar layout, rests, beaming
 src/audio/synth.ts     instruments (Karplus-Strong plucks with per-instrument tone, overdrive chain, saw synth),
                        metronome sounds, separate guitar/metronome volume buses (settings: store `sound`)
 src/audio/player.ts    lookahead scheduler (25 ms timer, 120 ms horizon), loop, speed, count-in
+src/audio/wakeLock.ts  Screen Wake Lock while playing (store effect on `playing`); re-taken when the page is shown again
 src/state/store.ts     single signals store: song, selection, cursor, playhead, transport, view/guide
                        options, actions (insertNote, toggleLoop, paste...), persistence
 src/ui/*.tsx           App, Transport (sticky header), TabView (SVG tab), Fretboard (neck + overlays),

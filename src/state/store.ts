@@ -8,6 +8,7 @@ import { Layout, PanelId, readLayout } from '../model/layout';
 import { decodeSong, encodeSong } from '../codec/codec';
 import { Practice, formatPractice, pageTitle, parsePractice } from '../codec/practice';
 import { Player } from '../audio/player';
+import { keepScreenOn } from '../audio/wakeLock';
 import { CLICK_SOUNDS, DEFAULT_SOUND, INSTRUMENTS, SoundSettings, setSound } from '../audio/synth';
 
 export type Loop = { start: number; end: number };
@@ -176,6 +177,7 @@ export function deleteSelection() {
 export const player = new Player(t => { playhead.value = t; }, () => { playing.value = false; });
 effect(() => player.setSong(song.value));
 effect(() => { player.speed = speed.value; });
+effect(() => { keepScreenOn(playing.value); }); // no dimming mid-solo on phones
 effect(() => { player.metronome = metronome.value; });
 effect(() => { player.countIn = countIn.value; });
 effect(() => { player.loop = loopOn.value ? loop.value : null; });
