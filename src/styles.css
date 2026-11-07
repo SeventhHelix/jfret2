@@ -292,3 +292,12 @@ button:disabled { opacity: 0.45; cursor: default; }
   .hints { display: none; }
   .fb-names { width: 16px; font-size: 12px; }
 }
+
+/* notes in focus that are scrolled out of view: a marker at that edge, on their string */
+.fb-view { position: relative; flex: 1; min-width: 0; }
+.fb-view .fb-scroll { width: 100%; }
+.fb-edge { position: absolute; z-index: 4; transform: translateY(-50%); pointer-events: none; padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; background: var(--soft); color: #fff; box-shadow: 0 0 0 2px #0006; white-space: nowrap; }
+.fb-edge.left { left: 4px; }
+.fb-edge.right { right: 4px; }
+.fb-edge.hot { background: var(--accent); color: #1a1200; box-shadow: 0 0 0 3px #ffb02055, 0 0 14px var(--accent); }

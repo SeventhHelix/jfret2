@@ -7,7 +7,7 @@ import {
   layout, song, view,
 } from '../state/store';
 import { intervalHue, noteHue } from './colors';
-import { fretWidth } from '../model/layout';
+import { focusRange, fretWidth } from '../model/layout';
 import { FlowPt, groupLinks } from '../model/flow';
 import { PITCH_NAMES, SCALE_NAMES, ScaleId, guessRoot, intervalName, pc } from '../model/theory';
 
@@ -28,6 +28,7 @@ type Cell = {
   approach: number;   // 1 = about to play / in view, lower = further away (motion)
   played: boolean;    // every soft note at this spot has already sounded (motion)
   hue: number | null; // position colour of the first note drawn here
+  dead: boolean;      // every note here is a dead (muted) note: shown as x
 };
 
 export function Fretboard() {
@@ -42,6 +43,7 @@ export function Fretboard() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  const [scrollX, setScrollX] = useState(0);
   const lay = layout.value;
   const s = song.value;
   const edit = editMode.value;
@@ -66,9 +68,10 @@ export function Fretboard() {
     const k = `${n.string}:${n.fret}`;
     let c = cells.get(k);
     if (!c) {
-      c = { hot: false, soft: false, next: false, atCursor: false, ghost: 0, approach: 0, played: true, hue: null };
+      c = { hot: false, soft: false, next: false, atCursor: false, ghost: 0, approach: 0, played: true, hue: null, dead: true };
       cells.set(k, c);
     }
+    c.dead &&= !!n.tech?.dead;
     return c;
   };
 
@@ -110,8 +113,9 @@ export function Fretboard() {
   // Source notes: whatever the neck is focused on (bar / selection / loop); in Live mode, the current bar.
   const barStartT = Math.floor(t / bar) * bar;
   const flowSrc = src === 'live' ? notesInRange(s.notes, barStartT, barStartT + bar) : s.notes.filter(n => soft.has(n.id));
-  const focusLo = flowSrc.length ? Math.min(...flowSrc.map(n => n.fret)) : -1;
-  const focusHi = flowSrc.length ? Math.max(...flowSrc.map(n => n.fret)) : -1;
+  // Where the hand mostly is: open strings, dead notes and a couple of stray far-off notes don't move it.
+  const focus = focusRange(flowSrc);
+  const focusLo = focus ? focus.lo : -1, focusHi = focus ? focus.hi : -1;
   // Fret width: fixed and scrolling, the whole neck fitted, or the frets in focus fitted to the panel.
   FRET_W = fretWidth(lay.fbNeck, visW, focusLo, focusHi, OPEN_W, MAX_FRET);
   const cx = (f: number) => (f === 0 ? OPEN_W / 2 : midX(f));
@@ -170,8 +174,8 @@ export function Fretboard() {
   }
   const segOpacity = (sg: Seg) =>
     sg.state === 'played' ? 0.18 : sg.state === 'current' ? 0.95 : opts.motion ? Math.max(0.22, 0.75 - 0.12 * (sg.ahead - 1)) : 0.6;
-  // Hand position: the fretted span of the focused notes (open strings need no fretting), at least 4 frets wide.
-  const fretted = flowSrc.filter(n => n.fret > 0);
+  // Hand position: the fretted notes in focus (not open strings, dead notes or strays), at least 4 frets wide.
+  const fretted = focus ? flowSrc.filter(n => n.fret >= focus.lo && n.fret <= focus.hi && !n.tech?.dead) : [];
   const hand = fretted.length ? (() => {
     const lo = Math.min(...fretted.map(n => n.fret)), hi = Math.max(Math.max(...fretted.map(n => n.fret)), lo + 3);
     const sLo = Math.min(...fretted.map(n => n.string)), sHi = Math.max(...fretted.map(n => n.string));
@@ -188,6 +192,7 @@ export function Fretboard() {
     const target = right - left > el.clientWidth ? left : (left + right) / 2 - el.clientWidth / 2;
     // Zoom to bar resizes the frets in one step, so jump there too; scrolling a fixed neck glides.
     el.scrollTo({ left: Math.max(0, target), behavior: lay.fbNeck === 'bar' ? 'auto' : 'smooth' });
+    if (lay.fbNeck === 'bar') setScrollX(el.scrollLeft); // a jump: the edge markers shouldn't wait a frame for the scroll event
   }, [focusLo, focusHi, fretW]);
 
   const barNo = Math.floor(t / bar) + 1;
@@ -195,6 +200,28 @@ export function Fretboard() {
   const cBeat = (cursor.value % bar) / beat + 1;
   const cBeatLabel = Number.isInteger(cBeat) ? `beat ${cBeat}` : `beat ${Math.floor(cBeat)}+`;
   const width = OPEN_W + MAX_FRET * FRET_W;
+  // Riff dots follow the label mode; dead notes show x.
+  const labelOf = (str: number, f: number, c: Cell) => {
+    if (c.dead) return 'x';
+    const p = pc(pitchOf(s, { string: str, fret: f }));
+    return g.labels === 'note' ? PITCH_NAMES[p] : g.labels === 'interval' ? intervalName(p, root) : String(f);
+  };
+  // Notes in focus that are scrolled out of view (an open string while up the neck, a far tapped note) get a
+  // marker at that edge of the neck, on their string, so they're never lost.
+  const edges: { str: number; side: 'left' | 'right'; labels: string[]; hot: boolean }[] = [];
+  if (visW > 0) {
+    for (const [k, c] of cells) {
+      if (!c.soft && !c.hot) continue;
+      const [str, f] = k.split(':').map(Number);
+      const side = cellX(f) + cellW(f) <= scrollX + 6 ? 'left' : cellX(f) >= scrollX + visW - 6 ? 'right' : null;
+      if (!side) continue;
+      let e = edges.find(x => x.str === str && x.side === side);
+      if (!e) edges.push(e = { str, side, labels: [], hot: false });
+      const lb = labelOf(str, f, c);
+      if (!e.labels.includes(lb)) e.labels.push(lb);
+      e.hot ||= c.hot;
+    }
+  }
   const onCell = (string: number, fret: number, shift: boolean) =>
     (edit ? insertNote(string, fret, shift) : previewNote(string, fret));
 
@@ -263,7 +290,8 @@ export function Fretboard() {
         <div class="fb-names">
           {TUNINGS[s.tuning].pitches.map((p, i) => <div key={i} style={{ height: ROW_H }}>{noteName(p)}</div>)}
         </div>
-        <div class="fb-scroll" ref={scrollRef}>
+        <div class="fb-view">
+        <div class="fb-scroll" ref={scrollRef} onScroll={e => setScrollX(e.currentTarget.scrollLeft)}>
           <div class="fb" style={{ width, height: ROW_H * STRINGS }}>
             <div class="fb-nut" style={{ left: OPEN_W - 6 }} />
             {Array.from({ length: MAX_FRET }, (_, i) => (
@@ -301,7 +329,7 @@ export function Fretboard() {
                     `${c.atCursor ? ' at-cursor' : ''}${opts.colour ? ' tint' : ''}${strictScale && !inScale ? ' out' : ''}`
                   : `${inScale ? ' scale' : ''}`) + `${scale && pcCell === root ? ' root' : ''}`;
                 // Riff dots follow the label mode; empty scale tones show their interval (or note name).
-                const riffLabel = g.labels === 'note' ? PITCH_NAMES[pcCell] : g.labels === 'interval' ? intervalName(pcCell, root) : String(f);
+                const riffLabel = c ? labelOf(str, f, c) : '';
                 const emptyLabel = scale && g.labels !== 'note' ? intervalName(pcCell, root) : PITCH_NAMES[pcCell];
                 return (
                   <div key={`${str}:${f}`} class={`fb-cell${cls}`}
@@ -322,6 +350,12 @@ export function Fretboard() {
                 style={{ left: f === 0 ? OPEN_W / 2 : midX(f) }}>{f}</span>
             ))}
           </div>
+        </div>
+        {edges.map(e => (
+          <div key={`${e.str}${e.side}`} class={`fb-edge ${e.side}${e.hot ? ' hot' : ''}`} style={{ top: e.str * ROW_H + ROW_H / 2 }}>
+            {e.side === 'left' ? `← ${e.labels.join(' ')}` : `${e.labels.join(' ')} →`}
+          </div>
+        ))}
         </div>
       </div>
     </div>

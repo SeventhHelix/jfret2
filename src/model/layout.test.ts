@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultLayout, fretWidth, movePanel, readLayout } from './layout';
+import { defaultLayout, focusRange, fretWidth, movePanel, readLayout } from './layout';
 
 describe('layout', () => {
   it('phones default to tab + fretboard following the bar; desktop shows everything', () => {
@@ -41,5 +41,23 @@ describe('layout', () => {
     expect(fretWidth('bar', 700, 12, 12, 52, 24)).toBe(140);   // never fewer than 5 frets' worth
     expect(fretWidth('bar', 380, 0, 3, 52, 24)).toBe(65.6);    // open strings need the open column too
     expect(fretWidth('bar', 700, -1, -1, 52, 24)).toBe(64);    // nothing in focus
+  });
+});
+
+describe('focusRange', () => {
+  const ns = (...frets: (number | 'x')[]) => frets.map(f => (f === 'x' ? { fret: 0, tech: { dead: true } } : { fret: f }));
+  it('ignores open strings and dead notes', () => {
+    expect(focusRange(ns(13, 15, 'x', 'x', 16, 0, 13))).toEqual({ lo: 13, hi: 16 });
+    expect(focusRange([{ fret: 5, tech: { dead: true } }, { fret: 14 }, { fret: 16 }])).toEqual({ lo: 14, hi: 16 });
+  });
+  it('a stray tapped note far up does not stretch the focus', () => {
+    expect(focusRange(ns(12, 14, 15, 12, 14, 15, 24))).toEqual({ lo: 12, hi: 15 });
+  });
+  it('a real position shift keeps the whole range', () => {
+    expect(focusRange(ns(5, 7, 8, 5, 7, 15, 17, 19, 15, 17))).toEqual({ lo: 5, hi: 19 });
+  });
+  it('close-together notes are all in focus; nothing fretted means no focus', () => {
+    expect(focusRange(ns(3, 5, 10))).toEqual({ lo: 3, hi: 10 });
+    expect(focusRange(ns(0, 'x', 0))).toBeNull();
   });
 });

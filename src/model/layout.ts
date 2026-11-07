@@ -76,3 +76,21 @@ export function fretWidth(mode: FretNeck, avail: number, lo: number, hi: number,
   const from = Math.max(1, lo), shown = Math.max(5, hi - from + 3);
   return Math.min(150, Math.max(40, (avail - (lo === 0 ? openW : 0)) / shown));
 }
+
+/** The frets the fretboard should focus on (zoom, scroll, hand box) for these notes, or null if none are fretted.
+ *  Open strings and dead notes don't count. A couple of stray notes far from where the hand mostly is (a tapped note
+ *  up high, a slide from far away) don't drag the focus either; a real position shift (lots of notes outside) does. */
+export function focusRange(notes: { fret: number; tech?: { dead?: boolean } }[]): { lo: number; hi: number } | null {
+  const f = notes.filter(n => n.fret > 0 && !n.tech?.dead).map(n => n.fret).sort((a, b) => a - b);
+  if (!f.length) return null;
+  const all = { lo: f[0], hi: f[f.length - 1] };
+  if (all.hi - all.lo <= 7) return all;
+  // The 6-fret window (one hand position plus a stretch) holding the most notes.
+  let best = { i: 0, j: 1 };
+  for (let i = 0, j = 0; i < f.length; i++) {
+    while (j < f.length && f[j] - f[i] <= 6) j++;
+    if (j - i > best.j - best.i) best = { i, j };
+  }
+  const outside = f.length - (best.j - best.i);
+  return outside <= Math.max(2, Math.floor(f.length * 0.2)) ? { lo: f[best.i], hi: f[best.j - 1] } : all;
+}
