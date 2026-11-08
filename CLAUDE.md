@@ -4,7 +4,14 @@ Browser-only guitar riff sketcher. Click frets to enter notes, fix rhythm in a t
 
 - Live: https://seventhhelix.github.io/jfret2/
 - Repo: https://github.com/SeventhHelix/jfret2 (remote `origin`, HTTPS; SSH host key isn't trusted on this machine)
-- Design spec and original plan: `docs/superpowers/specs/2026-10-03-jfret-design.md`, `docs/superpowers/plans/2026-10-03-jfret-v1.md`. The app has grown well past the plan; the code is the source of truth.
+- Design spec and original plan: `docs/superpowers/specs/2026-10-03-jfret-design.md`, `docs/superpowers/plans/2026-10-03-jfret-v1.md`; Guitar Pro import plan: `docs/superpowers/plans/2026-10-17-gp-import.md`. The app has grown well past the plans; the code is the source of truth.
+
+## How it's used (design for this)
+
+- The user learns solos from Guitar Pro files (e.g. Dream Theater), switching between a few songs via My tabs, and shares links with friends.
+- Screens: a vertical 24" monitor (about 1200px wide; the default layout is tuned for it and must not regress), a 27" 1440p monitor (Full width + Settings sizes), and an Android phone, often inside Messenger's in-app browser (little vertical room: about 650-700px).
+- UI preferences: keep it calm and uncluttered; put options in the ⚙ Settings menu rather than adding header buttons; one responsive layout for every screen size (no separate mobile view; narrow screens only get tighter spacing, icon-only buttons and different starting defaults).
+- Fast iteration: build it, verify it (tests + in-browser checks), push, and report plainly what was and wasn't verified (sound can't be heard here; real-phone behaviour can only be emulated).
 
 ## Workflow
 
@@ -76,12 +83,14 @@ UI components read signals and call store actions; they never mutate the song di
 - One ⚙ Settings menu (`ui/Settings.tsx`, collapsible sections Playback / Layout / Fretboard) holds count-in, sounds, layout, fretboard mode/labels/scale guide/display options. The header is one row (riff name, transport, speed, Click, ⚙, Share, Edit toggle); on narrow screens button words hide (`.lbl`) and menus open as a sheet, same layout otherwise. The fretboard has no header, only an info line (next-note spot while editing, scale while the guide is on). Layout (`layout` signal, `model/layout.ts`, localStorage `jfret:layout`, versioned by `LAYOUT_V`: phones on an older saved layout reset to the phone defaults; phones <=700px get their own defaults): panel visibility/order (tab, fretboard, editor; the header's edit row goes with the editor), full width, tab bars per line / lines shown / size, fretboard neck mode / size. TabView lays out at width/tabZoom and draws scaled via the SVG viewBox (pointer math divides by zoom). The fretboard uses CSS `zoom` (`--fbz`) on `.fb-wrap` (clicks are per-cell, scroll math stays in its own coordinates) and a per-render fret width (`FRET_W` is module-level and set each render from `fretWidth()`: fixed 64 / whole neck fitted / the bar's frets fitted). The focus (zoom, follow-scroll, hand box) comes from `focusRange()`: open strings, dead notes and a couple of stray far-off notes are ignored; notes in focus that end up off-screen get an edge marker (`.fb-edge`) on their string. TabRoll is not scaled (its drag math is in raw px).
 - Insert cursor goes AT a clicked note; inserting there ripples later notes. Shift-click on the neck stacks a chord onto the previous insert. Clicks on empty space in the tab/timeline snap to the nearest note start (`snapToNote`; while editing, also note ends so gaps can be filled). In Edit mode a fretboard tap inserts on pointer-up, so a long-press doesn't also insert.
 - Note editor (`ui/NoteEditor.tsx`, store `noteEditor`): fret / string / delete for one or more notes. Opens from double-click, right-click or long-press (500 ms timer in TabView/TabRoll; `contextmenu` on lit fretboard cells) and Enter on a selection; works in Practice mode too.
-- Keyboard shortcuts live in `ui/keyboard.ts` (Space, L, 1-6, ., T, B/R/V/S/H/M/N/P/X techniques, Ctrl+Z/Y/C/X/V/D, Alt+arrows, Backspace). Keep the hint line in `App.tsx` in sync.
+- Keyboard shortcuts live in `ui/keyboard.ts` (Space, L, 1-6, ., T, B/R/V/S/H/M/N/P/X techniques, Enter = note editor on the selection, Esc, Ctrl+Z/Y/C/X/V/D, Alt+arrows, Backspace). Global keys are ignored while the import dialog or note editor is open. Keep the hint line in `App.tsx` in sync.
 
 ## Dev environment quirks
 
 - Vite HMR can cache a half-written module when a file is edited in several quick steps (e.g. multiple `sed` passes). Symptoms: "does not provide an export named ..." in the console while `tsc` passes. Fix: restart the dev server (`preview_stop` / `preview_start`).
 - The in-app browser pane often stops drawing when not visible: screenshots time out, `requestAnimationFrame` and smooth scrolling pause. Prefer `javascript_tool` checks. It also strips `#s=` fragments on navigation; load a riff with `location.hash = 's=...'` instead.
 - Synthetic `PointerEvent`s work for fretboard clicks. Audio needs a real user gesture before the AudioContext runs.
+- Driving the app from `javascript_tool`: `await import('/src/state/store.ts')` gives the app's own store only if no file was edited since the dev server started. After an edit, HMR serves the app a new copy (`?t=...`) and your import talks to a stale one (symptoms: state changes don't show in the DOM). Restart the dev server before scripted checks. A `location.reload()` / `location.hash` change in the same script cuts it off; run the checks in a second call.
+- Phone checks: `resize_window` 390x680 (Messenger-like) or the `mobile` preset; clear `jfret:layout` in localStorage to get the phone defaults.
 - Guitar Pro import goes through alphaTab's `ScoreLoader` only (no rendering). alphaTab: 960 ticks/quarter (÷40 for jFret), `note.string` 1 = lowest string, `staff.tuning` high to low. Tests build real .gp files with `AlphaTexImporter` + `Gp7Exporter`, so no binary fixtures are checked in.
 - The jFret production build can be checked with the `jfret-prod` launch config (`vite preview`, port 4173) after `npm run build`.
