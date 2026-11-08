@@ -6,6 +6,7 @@ import { Toolbar } from './Toolbar';
 import { TabRoll } from './TabRoll';
 import { useKeyboard } from './keyboard';
 import { ImportDialog, isGpFile } from './ImportDialog';
+import { NoteEditor } from './NoteEditor';
 import { Fragment } from 'preact';
 import type { PanelId } from '../model/layout';
 import { editMode, errorMsg, importFile, layout } from '../state/store';
@@ -38,6 +39,7 @@ export function App() {
   return (
     <div class="app" style={l.fullWidth ? { maxWidth: 'none' } : undefined}>
       {importFile.value && <ImportDialog file={importFile.value} />}
+      <NoteEditor />
       {errorMsg.value && <div class="error" onClick={() => { errorMsg.value = null; }}>{errorMsg.value} (click to dismiss)</div>}
       <Transport />
       {l.panels.filter(p => p.on).map(p => <Fragment key={p.id}>{panel(p.id)}</Fragment>)}
@@ -64,6 +66,7 @@ function Editor() {
             <span><kbd>Alt</kbd>+<kbd>↑</kbd><kbd>↓</kbd> or mouse wheel on a note: up/down a fret</span>
             <span>Click a bar number to select the bar, <kbd>L</kbd> to loop it</span>
             <span><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy, paste at cursor</span>
+            <span>Double-click, right-click or long-press a note (or <kbd>Enter</kbd> on a selection) to change its fret or string</span>
             <span><kbd>Backspace</kbd> remove the note you just entered</span>
             <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</span>
             <span>Drop a Guitar Pro file on the page (or <b>Import…</b>) to bring in part of a song</span>

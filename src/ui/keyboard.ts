@@ -3,7 +3,7 @@ import { moveNotes } from '../model/ops';
 import { TechFlag, cycleBend, toggleTech } from '../model/tech';
 import {
   applyTech, commit, copySelection, cutSelection, deleteBeforeCursor, deleteSelection, duplicateSelection, editMode, grid, nudgeFrets,
-  importFile, pasteAtCursor, redo, selectAll, selection, setBaseLength, song, toggleDotted, toggleLoop, togglePlay, toggleTriplet, undo,
+  importFile, noteEditor, openNoteEditor, pasteAtCursor, redo, selectAll, selection, setBaseLength, song, toggleDotted, toggleLoop, togglePlay, toggleTriplet, undo,
 } from '../state/store';
 
 // 1=whole 2=half 3=quarter 4=8th 5=16th 6=32nd
@@ -14,7 +14,7 @@ const TECH_KEYS: Record<string, TechFlag> = { r: 'release', v: 'vibrato', s: 'sl
 export function useKeyboard() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (importFile.value) return; // the import dialog handles its own keys
+      if (importFile.value || noteEditor.value) return; // the import dialog and note editor handle their own keys
       const t = e.target instanceof HTMLElement ? e.target : document.body;
       if (t.closest('textarea, select') || (t instanceof HTMLInputElement && !['range', 'checkbox', 'button'].includes(t.type))) return;
       const mod = e.ctrlKey || e.metaKey;
@@ -41,6 +41,12 @@ export function useKeyboard() {
       const sel = selection.value;
       if (!sel.size) {
         if (e.key === 'Backspace') { e.preventDefault(); deleteBeforeCursor(); }
+        return;
+      }
+      if (e.key === 'Enter') { // edit the selected notes' fret / string
+        e.preventDefault();
+        const el = document.querySelector(`[data-id="${[...sel][0]}"]`)?.getBoundingClientRect();
+        openNoteEditor([...sel], el ? el.left + el.width / 2 : innerWidth / 2, el ? el.bottom : innerHeight / 3);
         return;
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {

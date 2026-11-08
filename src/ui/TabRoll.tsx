@@ -1,9 +1,9 @@
 import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { MAX_FRET, STRINGS, Song, TUNINGS, barTicks, beatTicks, noteName, pitchOf, songEndTick } from '../model/song';
-import { moveNotes, resizeNotes } from '../model/ops';
+import { moveNotes, resizeNotes, snapToNote } from '../model/ops';
 import {
-  commitFrom, cursor, grid, guide, guideScale, hotIds, loop, loopOn, nudgeFrets, placeCursor, playhead, playing, previewNote, selectBar,
+  commitFrom, cursor, openNoteEditor, grid, guide, guideScale, hotIds, loop, loopOn, nudgeFrets, placeCursor, playhead, playing, previewNote, selectBar,
   selection, song, view,
 } from '../state/store';
 import { pc } from '../model/theory';
@@ -14,7 +14,7 @@ const PX = 4;    // pixels per tick (quarter note = 96 px)
 const LANE = 30; // px per string lane
 
 type Drag =
-  | { kind: 'move' | 'resize'; x0: number; y0: number; orig: Song; ids: Set<number>; noteStart: number; noteId: number }
+  | { kind: 'move' | 'resize'; x0: number; y0: number; orig: Song; ids: Set<number>; noteStart: number; noteId: number; long?: boolean }
   | { kind: 'marquee'; x0: number; y0: number; x1: number; y1: number; additive: boolean };
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -24,6 +24,7 @@ export function TabRoll() {
   const sel = selection.value;
   const scrollRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  const press = useRef<number | undefined>(undefined);
   const wheelAcc = useRef(0);
   const [marquee, setMarquee] = useState<Rect | null>(null);
 
@@ -47,7 +48,7 @@ export function TabRoll() {
 
   const onDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     const p = local(e);
     const blk = (e.target as HTMLElement).closest<HTMLElement>('[data-id]');
     if (!blk) {
@@ -69,7 +70,23 @@ export function TabRoll() {
     }
     const resize = (() => { const r = blk.getBoundingClientRect(); return e.clientX > r.right - Math.min(8, r.width / 3); })();
     const noteStart = song.value.notes.find(n => n.id === id)?.start ?? 0;
-    drag.current = { kind: resize ? 'resize' : 'move', x0: p.x, y0: p.y, orig: song.value, ids, noteStart, noteId: id };
+    const dr: Drag = { kind: resize ? 'resize' : 'move', x0: p.x, y0: p.y, orig: song.value, ids, noteStart, noteId: id };
+    drag.current = dr;
+    // Long-press (touch) without moving opens the note editor.
+    const { clientX, clientY } = e;
+    clearTimeout(press.current);
+    press.current = window.setTimeout(() => {
+      if (drag.current === dr && song.value === dr.orig) { dr.long = true; openNoteEditor([...ids], clientX, clientY); }
+    }, 500);
+  };
+
+  // Double-click or right-click a block: the note editor (for the whole selection if the block is in it).
+  const openAt = (e: MouseEvent) => {
+    const blk = (e.target as HTMLElement).closest<HTMLElement>('[data-id]');
+    if (!blk) return;
+    e.preventDefault();
+    const id = Number(blk.dataset.id);
+    openNoteEditor(selection.value.has(id) ? [...selection.value] : [id], e.clientX, e.clientY);
   };
 
   const onMove = (e: PointerEvent) => {
@@ -86,6 +103,7 @@ export function TabRoll() {
     const dt = e.altKey ? Math.round(raw) : Math.round(raw / grid.value) * grid.value;
     const ds = d.kind === 'move' ? Math.round((p.y - d.y0) / LANE) : 0;
     if (dt === 0 && ds === 0) { song.value = d.orig; return; }
+    clearTimeout(press.current);
     if (d.kind === 'move') song.value = moveNotes(d.orig, d.ids, dt, ds);
     else song.value = resizeNotes(d.orig, d.ids, dt);
   };
@@ -93,8 +111,10 @@ export function TabRoll() {
   const onUp = () => {
     const d = drag.current;
     drag.current = null;
+    clearTimeout(press.current);
     if (!d) return;
     if (d.kind !== 'marquee') {
+      if (d.long) return;
       if (song.value === d.orig) { // plain click on a note: insert in front of it next, and hear it
         placeCursor(d.noteStart);
         const n = song.value.notes.find(x => x.id === d.noteId);
@@ -105,7 +125,9 @@ export function TabRoll() {
     }
     setMarquee(null);
     if (Math.abs(d.x1 - d.x0) + Math.abs(d.y1 - d.y0) <= 4) {
-      const t = Math.max(0, Math.round(d.x0 / PX / grid.value) * grid.value);
+      // An empty spot lands on the nearest note start or end (a gap you can fill), not anywhere on the grid.
+      const raw = d.x0 / PX;
+      const t = snapToNote(song.value.notes, raw, true) ?? Math.max(0, Math.round(raw / grid.value) * grid.value);
       placeCursor(t);
       if (!d.additive) selection.value = new Set();
       return;
@@ -171,7 +193,8 @@ export function TabRoll() {
             ))}
           </div>
           <div class="roll" style={{ width, height: LANE * STRINGS, backgroundImage: gridBg }}
-            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+            onDblClick={openAt} onContextMenu={openAt}>
             {Array.from({ length: STRINGS }, (_, i) => <div key={i} class="roll-lane" style={{ top: i * LANE + LANE / 2 }} />)}
             {lp && <div class="roll-loop" style={{ left: lp.start * PX, width: (lp.end - lp.start) * PX }} />}
             {s.notes.map(n => (

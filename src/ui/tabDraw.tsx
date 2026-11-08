@@ -44,7 +44,7 @@ export function drawBar(d: BarDraw): JSX.Element[] {
     for (const id of ev.noteIds) {
       const n = byId.get(id)!;
       const label = n.tech?.dead ? 'x' : n.tech?.harmonic ? `<${n.fret}>` : String(n.fret);
-      els.push(<text key={`f${id}`} data-start={n.start} class={`tv-fret${d.fretClass ? d.fretClass(n) : ''}`} x={x} y={y + n.string * GAP}>{label}</text>);
+      els.push(<text key={`f${id}`} data-start={n.start} data-id={n.id} class={`tv-fret${d.fretClass ? d.fretClass(n) : ''}`} x={x} y={y + n.string * GAP}>{label}</text>);
     }
     if (ev.value.stem !== 'none') els.push(<line key={`st${b}-${ev.start}`} class="tv-stem" x1={x} x2={x} y1={stemTop} y2={stemBottom(ev.value)} />);
     if (ev.value.dotted) els.push(<circle key={`d${b}-${ev.start}`} class="tv-dot" cx={x + 5} cy={stemBottom(ev.value) - 3} r={1.6} />);

@@ -2,7 +2,8 @@ import type { JSX } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { barTicks, beatTicks, songEndTick } from '../model/song';
 import { GAP, HEAD, LABEL_Y, PAD, STAFF_H, drawBar } from './tabDraw';
-import { cursor, editMode, grid, layout, hotIds, loop, loopOn, placeCursor, playhead, playing, seek, selection, song } from '../state/store';
+import { snapToNote } from '../model/ops';
+import { cursor, editMode, grid, layout, openNoteEditor, hotIds, loop, loopOn, placeCursor, playhead, playing, seek, selection, song } from '../state/store';
 
 const LEFT = 36;      // room for the "TAB" label
 const TOP = HEAD;     // staff top within a row (labels and technique marks sit above)
@@ -14,7 +15,10 @@ export function TabView() {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(900);
   const [dragLoop, setDragLoop] = useState<{ a: number; b: number } | null>(null);
-  const down = useRef<{ x: number; y: number; tick: number; noteStart: number | null } | null>(null);
+  const dragLoopRef = useRef(dragLoop);
+  dragLoopRef.current = dragLoop;
+  const down = useRef<{ x: number; y: number; tick: number; noteStart: number | null; long?: boolean } | null>(null);
+  const press = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const el = ref.current!;
@@ -57,21 +61,51 @@ export function TabView() {
 
   const onDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
-    (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
+    try { (e.currentTarget as SVGElement).setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     const p = local(e);
     const fret = (e.target as Element).closest('[data-start]');
     down.current = { ...p, tick: tickAt(p.x, p.y), noteStart: fret ? Number(fret.getAttribute('data-start')) : null };
+    // Long-press (touch) opens the note editor, like a double-click or right-click.
+    const { clientX, clientY } = e, target = e.target as Element;
+    clearTimeout(press.current);
+    press.current = window.setTimeout(() => {
+      const d = down.current;
+      if (!d || dragLoopRef.current) return;
+      const id = noteAt(target, p.x, p.y);
+      if (id !== null) { d.long = true; openNoteEditor([id], clientX, clientY); }
+    }, 500);
+  };
+  /** The note under a pointer: the fret number itself, or the nearest note on that string within half a beat. */
+  const noteAt = (target: Element, x: number, y: number): number | null => {
+    const hit = target.closest('[data-id]');
+    if (hit) return Number(hit.getAttribute('data-id'));
+    const tick = tickAt(x, y);
+    const string = Math.round((y - rowTop(barOf(tick))) / GAP);
+    let best: { id: number; d: number } | null = null;
+    for (const n of s.notes) {
+      const dt = Math.abs(n.start - tick);
+      if (n.string === string && dt <= beat / 2 && (!best || dt < best.d)) best = { id: n.id, d: dt };
+    }
+    return best ? best.id : null;
+  };
+  const openAt = (e: MouseEvent) => {
+    const r = (e.currentTarget as SVGElement).getBoundingClientRect();
+    const id = noteAt(e.target as Element, (e.clientX - r.left) / z, (e.clientY - r.top) / z);
+    if (id === null) return;
+    e.preventDefault();
+    openNoteEditor([id], e.clientX, e.clientY);
   };
   const onMove = (e: PointerEvent) => {
     const d = down.current;
     if (!d) return;
     const p = local(e);
-    if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 6) setDragLoop({ a: d.tick, b: tickAt(p.x, p.y) });
+    if (Math.abs(p.x - d.x) + Math.abs(p.y - d.y) > 6) { clearTimeout(press.current); setDragLoop({ a: d.tick, b: tickAt(p.x, p.y) }); }
   };
   const onUp = () => {
     const d = down.current;
     down.current = null;
-    if (!d) return;
+    clearTimeout(press.current);
+    if (!d || d.long) return;
     if (dragLoop) {
       const start = snap(Math.min(dragLoop.a, dragLoop.b));
       const end = snap(Math.max(dragLoop.a, dragLoop.b));
@@ -79,7 +113,8 @@ export function TabView() {
       if (end > start) { loop.value = { start, end }; loopOn.value = true; }
       return;
     }
-    const t = d.noteStart ?? snap(d.tick);
+    // Clicks land on notes: the nearest note start (or, while editing, where a note ends, to fill a gap).
+    const t = d.noteStart ?? snapToNote(s.notes, d.tick, editMode.value) ?? snap(d.tick);
     if (editMode.value) placeCursor(t); // cursor goes AT the clicked note, so the next fret click lands in front of it
     seek(t);
   };
@@ -148,7 +183,7 @@ export function TabView() {
             : 'This riff is empty. Switch to Edit to start one.'}
         </div>
       ) : (
-      <svg width={w} height={height * z} viewBox={`0 0 ${lw} ${height}`} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+      <svg width={w} height={height * z} viewBox={`0 0 ${lw} ${height}`} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onDblClick={openAt} onContextMenu={openAt}>
         {lp && shade(lp.start, lp.end, 'tv-loop')}
         {dragLoop && shade(Math.min(dragLoop.a, dragLoop.b), Math.max(dragLoop.a, dragLoop.b), 'tv-loop preview')}
         {els}

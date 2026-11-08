@@ -1,7 +1,7 @@
 import { batch, computed, effect, signal } from '@preact/signals';
 import { Song, barTicks, beatTicks, emptySong, notesInRange, pitchOf, songEndTick, soundingAt } from '../model/song';
 import { SCALES, ScaleId, guessRoot, scalePitchClasses, songPitchClasses } from '../model/theory';
-import { addNote, copyNotes, deleteNotes, duplicateNotes, NewNote, pasteNotes, setDuration, shiftFrets, shiftFrom } from '../model/ops';
+import { addNote, copyNotes, deleteNotes, duplicateNotes, NewNote, pasteNotes, setDuration, setNotes, shiftFrets, shiftFrom } from '../model/ops';
 import { History } from '../model/history';
 import type { FlowGrouping } from '../model/flow';
 import { Layout, PanelId, readLayout } from '../model/layout';
@@ -605,4 +605,29 @@ export const techIds = computed<Set<number>>(() => {
 export function applyTech(f: (s: Song, ids: Set<number>) => Song) {
   const ids = techIds.value;
   if (ids.size) commit(f(song.value, ids));
+}
+
+// ---- note editor (fix a wrong fret/string from any view) ----
+/** The notes the editor popup is open for, and where on screen to show it. */
+export const noteEditor = signal<{ ids: number[]; x: number; y: number } | null>(null);
+
+export function openNoteEditor(ids: number[], x: number, y: number) {
+  const live = ids.filter(id => song.value.notes.some(n => n.id === id));
+  if (live.length) noteEditor.value = { ids: live, x, y };
+}
+
+/** Change the open notes' fret/string (one undo step each) and play the first so you hear the fix. */
+export function editOpenNotes(patch: { fret?: number; string?: number }) {
+  const ed = noteEditor.value;
+  if (!ed) return;
+  commit(setNotes(song.value, new Set(ed.ids), patch));
+  const n = song.value.notes.find(m => m.id === ed.ids[0]);
+  if (n && !playing.value) previewNote(n.string, n.fret);
+}
+
+export function deleteOpenNotes() {
+  const ed = noteEditor.value;
+  if (!ed) return;
+  commit(deleteNotes(song.value, new Set(ed.ids)));
+  noteEditor.value = null;
 }

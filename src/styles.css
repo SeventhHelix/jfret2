@@ -301,3 +301,14 @@ button:disabled { opacity: 0.45; cursor: default; }
 .fb-edge.left { left: 4px; }
 .fb-edge.right { right: 4px; }
 .fb-edge.hot { background: var(--accent); color: #1a1200; box-shadow: 0 0 0 3px #ffb02055, 0 0 14px var(--accent); }
+
+/* note editor popup */
+.note-editor { position: fixed; z-index: 60; width: 220px; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--panel2);
+  border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 10px 24px #000a; font-size: 13px; }
+.ne-head { display: flex; align-items: center; gap: 2px; }
+.ne-head button { margin-left: auto; padding: 0 6px; }
+.ne-row { display: flex; align-items: center; gap: 5px; }
+.ne-row > .muted:first-child { width: 40px; }
+.ne-row input { width: 48px; text-align: center; font-size: 15px; font-weight: 600; }
+.ne-row .seg button { padding: 3px 6px; }
+.ne-hint { font-size: 11px; margin-left: auto; }

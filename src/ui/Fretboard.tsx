@@ -4,7 +4,7 @@ import { MAX_FRET, Note, STRINGS, TUNINGS, barTicks, beatTicks, noteName, notesI
 import {
   cursor, cursorIds, editMode, fretMode, guide, guideRoot, guideScale, hotIds, insertNote, nextIds, playhead, playing, previewNote,
   setGuide, softIds, softSource,
-  layout, song, view,
+  layout, openNoteEditor, song, view,
 } from '../state/store';
 import { intervalHue, noteHue } from './colors';
 import { focusRange, fretWidth } from '../model/layout';
@@ -44,6 +44,7 @@ export function Fretboard() {
     return () => ro.disconnect();
   }, []);
   const [scrollX, setScrollX] = useState(0);
+  const pending = useRef<{ string: number; fret: number; shift: boolean } | null>(null);
   const lay = layout.value;
   const s = song.value;
   const edit = editMode.value;
@@ -222,8 +223,17 @@ export function Fretboard() {
       e.hot ||= c.hot;
     }
   }
-  const onCell = (string: number, fret: number, shift: boolean) =>
-    (edit ? insertNote(string, fret, shift) : previewNote(string, fret));
+  // Practice: a fret sounds as soon as you touch it. Edit: the note goes in when you let go, so a long-press
+  // (which opens the note editor) doesn't also add one.
+  const onCellDown = (string: number, fret: number, shift: boolean) => {
+    if (edit) pending.current = { string, fret, shift };
+    else previewNote(string, fret);
+  };
+  const onCellUp = (string: number, fret: number) => {
+    const p = pending.current;
+    pending.current = null;
+    if (p && p.string === string && p.fret === fret) insertNote(string, fret, p.shift);
+  };
 
   const dotStyle = (c: Cell, fret: number): JSX.CSSProperties | undefined => {
     const st: Record<string, string | number> = {};
@@ -335,7 +345,16 @@ export function Fretboard() {
                   <div key={`${str}:${f}`} class={`fb-cell${cls}`}
                     style={{ left: cellX(f), top: str * ROW_H, width: cellW(f), height: ROW_H }}
                     title={edit ? 'Click to add · Shift-click to stack on the previous note (chord)' : undefined}
-                    onPointerDown={e => { e.preventDefault(); onCell(str, f, e.shiftKey); }}>
+                    onPointerDown={e => { if (e.button === 0) { e.preventDefault(); onCellDown(str, f, e.shiftKey); } }}
+                    onPointerUp={() => onCellUp(str, f)}
+                    onPointerCancel={() => { pending.current = null; }}
+                    onContextMenu={e => { // right-click / long-press a lit note: the note editor
+                      const ids = s.notes.filter(n => (soft.has(n.id) || hot.has(n.id)) && n.string === str && n.fret === f).map(n => n.id);
+                      pending.current = null;
+                      if (!ids.length) return;
+                      e.preventDefault();
+                      openNoteEditor(ids, e.clientX, e.clientY);
+                    }}>
                     <span class="fb-dot" style={c ? dotStyle(c, f) : inScale ? ({ '--ic': intervalHue(pcCell - root) } as JSX.CSSProperties) : undefined}>
                       {c ? riffLabel : emptyLabel}
                     </span>

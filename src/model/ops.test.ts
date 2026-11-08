@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Note, Song, emptySong } from './song';
 import {
   addNote, deleteNotes, moveNotes, resizeNotes, setDuration, quantize, applyFeel, evenOut, legato, shiftFrom,
-  copyNotes, pasteNotes, duplicateNotes, shiftFrets,
+  copyNotes, pasteNotes, duplicateNotes, shiftFrets, setNotes, snapToNote,
 } from './ops';
 
 const mk = (notes: Omit<Note, 'id'>[]): Song => ({ ...emptySong(), notes: notes.map((x, i) => ({ ...x, id: i + 1 })) });
@@ -222,5 +222,22 @@ describe('clipboard and fine-tuning', () => {
     const s = mk([note(0, 12, 0, 5), note(12, 12, 1, 0)]);
     expect(shiftFrets(s, ids(1, 2), 1).notes.map(n => n.fret)).toEqual([6, 1]);
     expect(shiftFrets(s, ids(1, 2), -1).notes.map(n => n.fret)).toEqual([4, 0]);
+  });
+});
+
+describe('note editor and click snapping', () => {
+  const s0 = (): Song => ({ ...emptySong(), notes: [
+    { id: 1, start: 0, dur: 12, string: 0, fret: 5 }, { id: 2, start: 48, dur: 12, string: 1, fret: 7 },
+  ] });
+  it('setNotes changes the fret and/or string, clamped', () => {
+    expect(setNotes(s0(), new Set([2]), { fret: 9 }).notes.find(n => n.id === 2)).toMatchObject({ fret: 9, string: 1 });
+    expect(setNotes(s0(), new Set([2]), { string: 3, fret: 40 }).notes.find(n => n.id === 2)).toMatchObject({ fret: 24, string: 3 });
+  });
+  it('snapToNote picks the nearest note start, or also note ends while editing', () => {
+    const notes = s0().notes;
+    expect(snapToNote(notes, 20, false)).toBe(0);
+    expect(snapToNote(notes, 40, false)).toBe(48);
+    expect(snapToNote(notes, 20, true)).toBe(12); // end of the first note: a gap you can insert into
+    expect(snapToNote([], 20, true)).toBeNull();
   });
 });

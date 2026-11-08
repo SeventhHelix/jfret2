@@ -166,3 +166,24 @@ export function shiftFrets(song: Song, ids: Set<number>, d: number): Song {
   return withNotes(song, song.notes.map(n =>
     ids.has(n.id) ? { ...n, fret: Math.min(MAX_FRET, Math.max(0, n.fret + d)) } : n), ids);
 }
+
+/** The note editor: set the fret and/or string of these notes (same fret on the new string). */
+export function setNotes(song: Song, ids: Set<number>, patch: { fret?: number; string?: number }): Song {
+  const fret = patch.fret === undefined ? undefined : Math.min(MAX_FRET, Math.max(0, Math.round(patch.fret)));
+  const string = patch.string === undefined ? undefined : Math.min(STRINGS - 1, Math.max(0, patch.string));
+  return withNotes(song, song.notes.map(n => (ids.has(n.id)
+    ? { ...n, ...(fret === undefined ? {} : { fret }), ...(string === undefined ? {} : { string }) }
+    : n)), ids);
+}
+
+/** Where a click in time lands: the nearest note start, or (while editing) also the point where a note ends, so
+ *  you can still put the cursor in a gap. null when there are no notes. */
+export function snapToNote(notes: Note[], tick: number, withEnds: boolean): number | null {
+  let best: number | null = null;
+  for (const n of notes) {
+    for (const t of withEnds ? [n.start, n.start + n.dur] : [n.start]) {
+      if (best === null || Math.abs(t - tick) < Math.abs(best - tick)) best = t;
+    }
+  }
+  return best;
+}
