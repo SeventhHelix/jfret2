@@ -686,3 +686,40 @@ export function deleteOpenNotes() {
   commit(deleteNotes(song.value, new Set(ed.ids)));
   noteEditor.value = null;
 }
+
+// ---- sections: Play (the riff sketcher), Learn (fretboard knowledge drills), Speed (technique trainer) ----
+export type Section = 'play' | 'learn' | 'speed';
+const SECTION_KEY = 'jfret:section';
+function loadSection(): Section {
+  // Someone's riff link opens the riff. (Your own last riff is always in the URL too, so that one doesn't count.)
+  const p = payloadFromHash();
+  let own: string | null = null;
+  try { own = localStorage.getItem(LS_KEY); } catch { /* storage unavailable */ }
+  if (p && p !== own) return 'play';
+  const v = readJson(SECTION_KEY);
+  return v === 'learn' || v === 'speed' ? v : 'play';
+}
+export const section = signal<Section>(loadSection());
+export function setSection(s: Section) {
+  if (s !== 'play' && playing.value) { player.pause(); playing.value = false; }
+  section.value = s;
+  try { localStorage.setItem(SECTION_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+}
+
+/** Open a song (e.g. a speed exercise) in Play as a new, unsaved riff you can edit. Undoable like New riff. */
+export function openInPlay(next: Song) {
+  currentTabId.value = null;
+  player.pause();
+  playing.value = false;
+  batch(() => {
+    commit(next);
+    selection.value = new Set();
+    cursor.value = songEndTick(next);
+    loop.value = null;
+    loopOn.value = false;
+    feel.clear();
+    playhead.value = 0;
+    editMode.value = true;
+  });
+  setSection('play');
+}

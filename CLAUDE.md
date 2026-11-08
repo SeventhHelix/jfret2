@@ -64,6 +64,15 @@ src/audio/player.ts    lookahead scheduler (25 ms timer, 120 ms horizon), loop, 
 src/audio/wakeLock.ts  Screen Wake Lock while playing (store effect on `playing`); re-taken when the page is shown again
 src/state/store.ts     single signals store: song, selection, cursor, playhead, transport, view/guide
                        options, actions (insertNote, toggleLoop, paste...), persistence
+src/learn/fretmap.ts   pure neck geometry (standard tuning): positions of pitch classes in a region, close triad shapes
+                       on a string set, diatonic triads, landmark hints, key-aware spelling (Bb not A#)
+src/learn/drills.ts    Learn drills: every drill makes a Question (prompt, region, given marks, targets, shapes,
+                       or choices for name-it). Levels per drill; weighted picks favour weak items
+src/learn/stats.ts     Learn progress: per-item results, spacing weight, 8-of-10 level-up, daily streak
+src/speed/patterns.ts  Speed patterns -> spots: 3nps/pentatonic runs with sequences, one-string, pedal point,
+                       string-skip arpeggio, 3/5-string sweeps, chromatic 1-2-3-4
+src/speed/drill.ts     Speed drills on a phrase: steady, bursts (double time), chunks + rests (overlap by one),
+                       dotted rhythm variations; tempo ladder; toSong() for the normal Player
 src/ui/*.tsx           App, Transport (sticky header), TabView (SVG tab), Fretboard (neck + overlays),
                        TabRoll (timeline editor), Toolbar (note length + rhythm tools), Settings (the ⚙ menu), MyTabs (☰ saved songs), NoteEditor (fix a note), ImportDialog (GP track +
                        section picker) + GpTabPreview (whole track as tab, click/drag bars), tabDraw (one bar of
@@ -71,6 +80,18 @@ src/ui/*.tsx           App, Transport (sticky header), TabView (SVG tab), Fretbo
 ```
 
 UI components read signals and call store actions; they never mutate the song directly. Drags update `song.value` live from a snapshot and record one undo step with `commitFrom(orig)`.
+
+## Sections
+
+Three sections (`section` signal in the store, localStorage `jfret:section`; `ui/SectionNav.tsx`): **Play** (the riff
+sketcher, everything below), **Learn** (`ui/Learn.tsx`) and **Speed** (`ui/Speed.tsx`). A link to someone else's riff
+always opens Play. On phones Play's header has no room, so the switch is at the top of the ☰ menu; Learn/Speed use a small
+native picker. The global keyboard handler only runs in Play; Learn and Speed register their own keys.
+- Learn and Speed draw the neck with `ui/Neck.tsx` (marks, dimmed outside a region, shape outlines, taps, a focus range it
+  keeps scrolled into view), not the Play fretboard. Learn stats: localStorage `jfret:learn`, options `jfret:learn-opts`.
+- Speed has its own `Player` instance; the cycle loops and a wrap in `onTick` counts a cycle, where the ladder swaps the
+  song (same notes, new bpm) via `setSong` so tempo changes without a gap. Settings `jfret:speed`, clean tempos `jfret:speed-log`.
+  "Open in Play" loads the exercise as a new unsaved riff (`openInPlay`, undoable).
 
 ## Invariants and gotchas
 

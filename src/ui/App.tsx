@@ -9,7 +9,9 @@ import { ImportDialog, isGpFile } from './ImportDialog';
 import { NoteEditor } from './NoteEditor';
 import { Fragment } from 'preact';
 import type { PanelId } from '../model/layout';
-import { editMode, errorMsg, importFile, layout } from '../state/store';
+import { editMode, errorMsg, importFile, layout, section } from '../state/store';
+import { Learn } from './Learn';
+import { Speed } from './Speed';
 
 /** Dropping a Guitar Pro file anywhere on the page opens the import dialog. */
 function useFileDrop() {
@@ -33,6 +35,8 @@ export function App() {
   useKeyboard();
   useFileDrop();
   const l = layout.value;
+  if (section.value === 'learn') return <div class="app"><Learn /></div>;
+  if (section.value === 'speed') return <div class="app"><Speed /></div>;
   // Panels in the order and visibility chosen in the View menu. The editor only exists in Edit mode.
   const panel = (id: PanelId) =>
     id === 'tab' ? <TabView /> : id === 'fretboard' ? <Fretboard /> : editMode.value ? <Editor /> : null;

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { byRecent, timeAgo } from '../model/library';
 import { GP_ACCEPT } from './ImportDialog';
-import { currentTabId, deleteTab, importFile, library, newSong, openTab, saveToMyTabs, song } from '../state/store';
+import { currentTabId, deleteTab, importFile, library, newSong, openTab, saveToMyTabs, setSection, song } from '../state/store';
 
 /** ☰ My tabs: the songs saved in this browser. Open one, save the riff you're on, start new, import a file. */
 export function MyTabs() {
@@ -24,6 +24,14 @@ export function MyTabs() {
     <details class="opts my-tabs" ref={ref}>
       <summary title="My tabs: songs saved in this browser">☰</summary>
       <div class="opts-pop">
+        {/* Phones: Play's header has no room for the section switch, so it lives here. */}
+        <div class="mt-sections">
+          <span class="seg small" role="group" aria-label="Section">
+            <button class="on">♪ Play</button>
+            <button onClick={() => { closeMenu(); setSection('learn'); }}>◎ Learn</button>
+            <button onClick={() => { closeMenu(); setSection('speed'); }}>⚡ Speed</button>
+          </span>
+        </div>
         <div class="mt-head">
           <b>My tabs</b>
           <span class="muted">saved in this browser</span>

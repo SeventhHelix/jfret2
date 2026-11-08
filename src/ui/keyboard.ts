@@ -3,7 +3,7 @@ import { moveNotes } from '../model/ops';
 import { TechFlag, cycleBend, toggleTech } from '../model/tech';
 import {
   applyTech, commit, copySelection, cutSelection, deleteBeforeCursor, deleteSelection, duplicateSelection, editMode, grid, nudgeFrets,
-  importFile, noteEditor, openNoteEditor, pasteAtCursor, redo, selectAll, selection, setBaseLength, song, toggleDotted, toggleLoop, togglePlay, toggleTriplet, undo,
+  importFile, noteEditor, section, openNoteEditor, pasteAtCursor, redo, selectAll, selection, setBaseLength, song, toggleDotted, toggleLoop, togglePlay, toggleTriplet, undo,
 } from '../state/store';
 
 // 1=whole 2=half 3=quarter 4=8th 5=16th 6=32nd
@@ -15,6 +15,7 @@ export function useKeyboard() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (importFile.value || noteEditor.value) return; // the import dialog and note editor handle their own keys
+      if (section.value !== 'play') return; // Learn and Speed have their own keys
       const t = e.target instanceof HTMLElement ? e.target : document.body;
       if (t.closest('textarea, select') || (t instanceof HTMLInputElement && !['range', 'checkbox', 'button'].includes(t.type))) return;
       const mod = e.ctrlKey || e.metaKey;

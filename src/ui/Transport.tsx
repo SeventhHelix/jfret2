@@ -3,6 +3,7 @@ import { Song, TUNINGS, TUNING_IDS, TuningId } from '../model/song';
 import { GP_ACCEPT } from './ImportDialog';
 import { SettingsMenu } from './Settings';
 import { MyTabs } from './MyTabs';
+import { SectionNav } from './SectionNav';
 import {
   commit, currentTabId, editMode, importFile, saveToMyTabs, panelOn, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
   shareUrl, song, speed, togglePlay, undo,
@@ -32,6 +33,7 @@ export function Transport() {
   return (
     <div class="panel header">
       <div class="row">
+        <SectionNav inPlay />
         <MyTabs />
         <input class="title-input" value={title} maxLength={60} placeholder="Name your riff"
           onInput={e => setTitle(e.currentTarget.value)} onChange={e => setMeta({ title: e.currentTarget.value })} />
