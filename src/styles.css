@@ -413,3 +413,13 @@ button.wrong { background: #f871711f; border-color: var(--danger); color: #fecac
   .section-pick.in-play { display: none; }
   .mt-sections { display: block; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 }
+
+/* ☰ Find a tab */
+.mt-find { display: flex; flex-direction: column; gap: 6px; }
+.mt-find input { width: 100%; }
+.mt-sites { list-style: none; margin: 0; padding: 0 2px; display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+.mt-sites li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.mt-sites a { color: var(--sel); text-decoration: none; font-weight: 600; }
+.mt-sites a:hover { text-decoration: underline; }
+.mt-sites .muted { font-size: 12px; }
+.mt-find-tip { font-size: 12px; line-height: 1.4; }
