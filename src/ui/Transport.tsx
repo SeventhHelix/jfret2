@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Song, TUNINGS, TUNING_IDS, TuningId } from '../model/song';
 import { GP_ACCEPT } from './ImportDialog';
 import { SettingsMenu } from './Settings';
+import { MyTabs } from './MyTabs';
 import {
-  commit, editMode, importFile, panelOn, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
+  commit, currentTabId, editMode, importFile, saveToMyTabs, panelOn, loopOn, metronome, newSong, playing, redo, rewind, selection, toggleLoop,
   shareUrl, song, speed, togglePlay, undo,
 } from '../state/store';
 
@@ -31,8 +32,12 @@ export function Transport() {
   return (
     <div class="panel header">
       <div class="row">
+        <MyTabs />
         <input class="title-input" value={title} maxLength={60} placeholder="Name your riff"
           onInput={e => setTitle(e.currentTarget.value)} onChange={e => setMeta({ title: e.currentTarget.value })} />
+        {!currentTabId.value && s.notes.length > 0 && (
+          <button class="mini save-chip" onClick={saveToMyTabs} title="Keep this song in My tabs (☰), saved in this browser">＋ Save</button>
+        )}
         <div class="group">
           <button onClick={rewind} title="Back to start" aria-label="Back to start">⏮</button>
           <button class="play" onClick={togglePlay} title="Play / pause (Space)">{playing.value ? '⏸' : '▶'}<span class="lbl">{playing.value ? ' Pause' : ' Play'}</span></button>

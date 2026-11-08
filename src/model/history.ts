@@ -11,6 +11,12 @@ export class History<T> {
     this.future = [];
   }
 
+  /** Forget everything (switching to another song: undo shouldn't cross into it). */
+  clear() {
+    this.past = [];
+    this.future = [];
+  }
+
   undo(current: T): T | null {
     const prev = this.past.pop();
     if (prev === undefined) return null;

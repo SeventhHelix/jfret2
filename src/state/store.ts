@@ -5,6 +5,7 @@ import { addNote, copyNotes, deleteNotes, duplicateNotes, NewNote, pasteNotes, s
 import { History } from '../model/history';
 import type { FlowGrouping } from '../model/flow';
 import { Layout, PanelId, readLayout } from '../model/layout';
+import { TabEntry, addTab, findTab, readLibrary, removeTab, updateTab } from '../model/library';
 import { decodeSong, encodeSong } from '../codec/codec';
 import { Practice, formatPractice, pageTitle, parsePractice } from '../codec/practice';
 import { Player } from '../audio/player';
@@ -301,6 +302,7 @@ export function insertNote(string: number, fret: number, stack = false) {
 
 export function newSong() {
   if (song.value.notes.length && !confirm('Start a new riff? You can undo this.')) return;
+  currentTabId.value = null; // the song you were on stays saved as it was
   player.pause();
   playing.value = false;
   batch(() => {
@@ -320,18 +322,10 @@ export const importFile = signal<File | null>(null);
 
 /** Replace the riff with an imported section (one undo step). */
 export function importSong(next: Song) {
-  player.pause();
-  playing.value = false;
-  batch(() => {
-    commit(next);
-    selection.value = new Set();
-    cursor.value = songEndTick(next);
-    loop.value = null;
-    loopOn.value = false;
-    feel.clear();
-    playhead.value = 0;
-    importFile.value = null;
-  });
+  importFile.value = null;
+  replaceSong(next);
+  speed.value = 1; // a new song starts at full speed, not the last one's practice speed
+  saveToMyTabs(); // imported songs go straight into My tabs
 }
 
 // ---- derived view state for highlighting ----
@@ -380,6 +374,61 @@ export const softIds = computed<Set<number>>(() => {
   }
 });
 
+// ---- My tabs: songs saved in this browser ----
+const LIB_KEY = 'jfret:tabs';
+const CUR_KEY = 'jfret:current-tab';
+const readJson = (k: string) => { try { return JSON.parse(localStorage.getItem(k) ?? 'null'); } catch { return null; } };
+export const library = signal<TabEntry[]>(readLibrary(readJson(LIB_KEY)));
+effect(() => { try { localStorage.setItem(LIB_KEY, JSON.stringify(library.value)); } catch { /* full or unavailable */ } });
+/** The My tabs entry the open song belongs to (null: not saved). */
+export const currentTabId = signal<string | null>(readJson(CUR_KEY));
+effect(() => { try { localStorage.setItem(CUR_KEY, JSON.stringify(currentTabId.value)); } catch { /* ignore */ } });
+
+function attachByPayload(payload: string) {
+  currentTabId.value = findTab(library.value, payload, currentTabId.value)?.id ?? null;
+}
+
+/** Switch to another song: no undo across songs (it would pour one song's notes into another's entry). */
+function replaceSong(next: Song) {
+  player.pause();
+  playing.value = false;
+  batch(() => {
+    song.value = next;
+    history.clear();
+    selection.value = new Set();
+    cursor.value = songEndTick(next);
+    loop.value = null;
+    loopOn.value = false;
+    feel.clear();
+    playhead.value = 0;
+  });
+}
+
+/** Save the open song as a new My tabs entry (a friend's link, a new sketch) and keep working in it. */
+export function saveToMyTabs() {
+  const { lib, id } = addTab(library.value, { title: song.value.title, payload: encodeSong(song.value), practice: formatPractice(currentPractice()) }, Date.now());
+  library.value = lib;
+  currentTabId.value = id;
+}
+
+export function openTab(id: string) {
+  const e = library.value.find(x => x.id === id);
+  if (!e) return;
+  let next: Song;
+  try { next = decodeSong(e.payload); } catch { errorMsg.value = "That saved song couldn't be read."; return; }
+  replaceSong(next);
+  currentTabId.value = id;
+  // Its own practice setup; songs saved without one go back to normal speed, no loop, no click.
+  const pr = parsePractice('#' + e.practice);
+  if (pr) applyPractice(pr);
+  else batch(() => { speed.value = 1; metronome.value = false; countIn.value = false; });
+}
+
+export function deleteTab(id: string) {
+  library.value = removeTab(library.value, id);
+  if (currentTabId.value === id) currentTabId.value = null;
+}
+
 // ---- persistence ----
 const LS_KEY = 'jfret:last';
 const PRACTICE_KEY = 'jfret:last-practice'; // the practice settings that go with the last riff
@@ -424,7 +473,7 @@ export function loadInitial() {
       // Reloading your own last-saved riff stays in edit mode; someone else's link opens in the player view.
       let own: string | null = null;
       try { own = localStorage.getItem(LS_KEY); } catch { /* storage unavailable */ }
-      if (p !== own && song.value.notes.length) editMode.value = false;
+      if (p !== own && !findTab(library.value, p) && song.value.notes.length) editMode.value = false;
       const pr = parsePractice(location.hash);
       if (pr) applyPractice(pr);
     } catch {
@@ -439,6 +488,7 @@ export function loadInitial() {
     } catch { /* storage unavailable or corrupt: start empty */ }
   }
   cursor.value = songEndTick(song.value);
+  attachByPayload(encodeSong(song.value));
 }
 
 let saveTimer: number | undefined;
@@ -458,6 +508,12 @@ export function startAutosave() {
       }
       if (!isFirst) {
         try { localStorage.setItem(LS_KEY, payload); localStorage.setItem(PRACTICE_KEY, extra); } catch { /* ignore */ }
+        // Same logical song: edits and settings keep saving into the open My tabs entry. With none open,
+        // pick it back up if this is a saved song again (e.g. undoing a New riff).
+        const id = currentTabId.peek();
+        if (id && library.peek().some(e => e.id === id)) {
+          library.value = updateTab(library.peek(), id, { title: song.peek().title, payload, practice: extra }, Date.now());
+        } else attachByPayload(payload);
       }
     }, 300);
   });
@@ -469,9 +525,8 @@ export function startAutosave() {
     if (pr) applyPractice(pr);
     if (p === encodeSong(song.value)) return;
     try {
-      commit(decodeSong(p));
-      selection.value = new Set();
-      cursor.value = songEndTick(song.value);
+      replaceSong(decodeSong(p));
+      attachByPayload(p);
     } catch {
       errorMsg.value = "That link couldn't be read.";
     }

@@ -277,6 +277,24 @@ button:disabled { opacity: 0.45; cursor: default; }
 .vm-move button { padding: 1px 7px; font-size: 12px; }
 .empty-view { text-align: center; padding: 24px; }
 
+/* My tabs (☰) */
+.opts.my-tabs summary { font-size: 16px; padding: 1px 10px; border-radius: 6px; color: var(--text); }
+.opts.my-tabs .opts-pop { left: 0; right: auto; width: 320px; max-height: calc(100vh - 90px); overflow-y: auto; }
+.mt-head { display: flex; align-items: baseline; gap: 8px; }
+.mt-head .muted { font-size: 12px; }
+.mt-save { width: 100%; }
+.mt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.mt-list li { display: flex; align-items: center; border-radius: 6px; }
+.mt-list li.on { background: var(--panel); box-shadow: inset 3px 0 0 var(--soft); }
+.mt-open { flex: 1; min-width: 0; display: flex; justify-content: space-between; gap: 8px; text-align: left; background: transparent; border-color: transparent; }
+.mt-open:hover { border-color: var(--line); }
+.mt-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.mt-when { font-size: 11px; white-space: nowrap; }
+.mt-del { padding: 2px 8px; color: var(--muted); }
+.mt-empty { margin: 0; font-size: 13px; }
+.mt-foot { display: flex; gap: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.save-chip { font-size: 12px; padding: 2px 8px; border-color: var(--soft); color: var(--text); }
+
 /* ---- Narrow screens: same layout, tighter, button words become icons, menus open as a sheet ---- */
 @media (pointer: coarse) {
   .tv svg { touch-action: pan-y; } /* let a finger scroll the tab pane (drag-to-loop is a mouse thing) */
@@ -286,7 +304,8 @@ button:disabled { opacity: 0.45; cursor: default; }
   .panel { padding: 6px; border-radius: 8px; }
   .header { box-shadow: 0 0 0 4px var(--bg), 0 6px 14px #000a; }
   .lbl { display: none; }
-  .opts-pop, .opts.settings .opts-pop {
+  .title-input { flex-basis: 70px; font-size: 15px; }
+  .opts-pop, .opts.settings .opts-pop, .opts.my-tabs .opts-pop {
     position: fixed; left: 8px; right: 8px; top: 56px; width: auto; max-height: calc(100vh - 72px); overflow-y: auto;
   }
   .hints { display: none; }
