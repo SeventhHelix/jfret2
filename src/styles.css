@@ -423,3 +423,9 @@ button.wrong { background: #f871711f; border-color: var(--danger); color: #fecac
 .mt-sites a:hover { text-decoration: underline; }
 .mt-sites .muted { font-size: 12px; }
 .mt-find-tip { font-size: 12px; line-height: 1.4; }
+/* Learn, Play & reveal: a wrong tap shows its name in red, then fades */
+.fb-cell.lr-flash .fb-dot { opacity: 0; background: var(--danger); color: #2a0606; }
+.fb-cell.lr-flash.fa .fb-dot { animation: lr-flash-a 1.5s ease-in forwards; }
+.fb-cell.lr-flash.fb .fb-dot { animation: lr-flash-b 1.5s ease-in forwards; }
+@keyframes lr-flash-a { 0%, 45% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.8); } }
+@keyframes lr-flash-b { 0%, 45% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.8); } }

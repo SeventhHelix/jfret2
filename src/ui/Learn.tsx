@@ -6,7 +6,7 @@ import type { JSX } from 'preact';
 import { Neck, NeckMark } from './Neck';
 import { SectionNav } from './SectionNav';
 import { CATEGORIES, Category, DRILLS, DrillId, Mark, Question, drillById } from '../learn/drills';
-import { landmarkHint, pitchAt, posKey, Pos } from '../learn/fretmap';
+import { landmarkHint, nameAt, pitchAt, posKey, Pos } from '../learn/fretmap';
 import { LearnStats, accuracy, readStats, readyToLevelUp, record, streakDays, dayKey, weight } from '../learn/stats';
 import { getCtx, playPluck } from '../audio/synth';
 import { intervalHue } from './colors';
@@ -60,6 +60,7 @@ function nextQuestion() {
     q = d.gen(levelOf(d.id), { rng: Math.random, weigh: (dr, item) => weight(s, dr, item, now) });
     if (!prev || q.prompt !== prev.prompt || q.sub !== prev.sub) break; // don't ask the exact same thing twice in a row
   }
+  flashes.value = new Map();
   cur.value = { q: q!, phase: 'ask', started: now, hints: [], hit: new Set(), miss: new Set(), chosen: null, graded: false };
 }
 
@@ -118,12 +119,34 @@ function hint() {
   playPitches([pitchAt(m.pos)]);
 }
 
+// Play & reveal: tapping a spot names it. A right one stays up; a wrong one flashes red with its name and fades.
+const flashes = signal<Map<string, number>>(new Map());
+let flashSeq = 0;
+function flashWrong(k: string) {
+  const id = ++flashSeq;
+  flashes.value = new Map(flashes.value).set(k, id);
+  setTimeout(() => {
+    if (flashes.value.get(k) !== id) return; // tapped again since: that flash owns it now
+    const m = new Map(flashes.value);
+    m.delete(k);
+    flashes.value = m;
+  }, 1600);
+}
+
 function tap(p: Pos) {
   const c = cur.value;
   if (!c) return;
   const k = posKey(p);
   playPitches([pitchAt(p)]);
-  if (c.phase === 'shown' || opts.value.answer !== 'tap' || c.q.choices) return; // just a sound
+  if (c.phase === 'shown' || c.q.choices) return; // just a sound
+  if (opts.value.answer === 'reveal') {
+    if (c.q.given.some(m => posKey(m.pos) === k) || c.hit.has(k)) return;
+    if (!c.q.targets.some(m => posKey(m.pos) === k)) { flashWrong(k); return; }
+    const hit = new Set(c.hit).add(k);
+    const done = c.q.targets.every(m => hit.has(posKey(m.pos)) || c.hints.includes(posKey(m.pos)));
+    cur.value = { ...c, hit, phase: done ? 'shown' : c.phase }; // all found: on to "did you get them all?"
+    return;
+  }
   const isTarget = c.q.targets.some(m => posKey(m.pos) === k);
   if (c.q.given.some(m => posKey(m.pos) === k)) return;
   const hit = new Set(c.hit), miss = new Set(c.miss);
@@ -145,7 +168,7 @@ function choose(name: string) {
 // ---- view ----
 const PRINCIPLES: [string, string][] = [
   ['Recall first, then check',
-    "Pull the answer out of your own head before you look: find it on the guitar and say it out loud, then reveal. Struggling for a few seconds is the workout; reading a diagram feels productive but barely sticks. Tap mode makes you commit to every spot before you see it."],
+    "Pull the answer out of your own head before you look: find it on the guitar and say it out loud, then reveal. Struggling for a few seconds is the workout; reading a diagram feels productive but barely sticks. Tap a spot on the neck to check it, or use Tap mode to commit to every spot before you see any."],
   ['Link it to something you know',
     'Nobody memorises 72 separate spots. Every drill here hangs a new fact off an anchor: the open strings and 5th/7th/12th frets, octave shapes, the root under your finger, the shape you just played. Hints show that link, not just the answer.'],
   ['Mix it up, a little every day',
@@ -190,6 +213,11 @@ export function Learn() {
     }
   }
   for (const k of c.miss) if (!marks.has(k)) marks.set(k, { label: '✕', cls: 'lr-wrong' });
+  for (const [k, id] of flashes.value) {
+    // Two identical animations under different names, so tapping the same wrong spot again restarts the fade.
+    const [str, f] = k.split(':').map(Number);
+    if (!marks.has(k)) marks.set(k, { label: nameAt({ string: str, fret: f }), cls: `lr-flash ${id % 2 ? 'fa' : 'fb'}` });
+  }
 
   const lastHint = c.hints.length ? q.targets.find(m => posKey(m.pos) === c.hints[c.hints.length - 1]) : null;
   const left = q.targets.length - q.targets.filter(m => c.hit.has(posKey(m.pos)) || c.hints.includes(posKey(m.pos))).length;
