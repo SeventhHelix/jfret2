@@ -238,10 +238,12 @@ function noiseBuffer(c: AudioContext): AudioBuffer {
 }
 
 /** One metronome click; accent = first beat of the bar. */
-export function playClick(c: AudioContext, when: number, accent: boolean): AudioScheduledSourceNode {
+export function playClick(c: AudioContext, when: number, accent: boolean, level = 1): AudioScheduledSourceNode {
   getCtx();
   const g = c.createGain();
-  g.connect(clickBus!);
+  const lv = c.createGain(); // per-click level (the metronome's accent / beat / subdivision volumes)
+  lv.gain.value = gainOf(level);
+  g.connect(lv).connect(clickBus!);
   switch (sound.click) {
     case 'woodblock': {
       const osc = c.createOscillator();

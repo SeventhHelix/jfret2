@@ -17,7 +17,7 @@ export function TabView() {
   const [dragLoop, setDragLoop] = useState<{ a: number; b: number } | null>(null);
   const dragLoopRef = useRef(dragLoop);
   dragLoopRef.current = dragLoop;
-  const down = useRef<{ x: number; y: number; tick: number; noteStart: number | null; long?: boolean } | null>(null);
+  const down = useRef<{ x: number; y: number; tick: number; noteStart: number | null; noteId: number | null; shift: boolean; long?: boolean } | null>(null);
   const press = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -64,7 +64,8 @@ export function TabView() {
     try { (e.currentTarget as SVGElement).setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     const p = local(e);
     const fret = (e.target as Element).closest('[data-start]');
-    down.current = { ...p, tick: tickAt(p.x, p.y), noteStart: fret ? Number(fret.getAttribute('data-start')) : null };
+    down.current = { ...p, tick: tickAt(p.x, p.y), noteStart: fret ? Number(fret.getAttribute('data-start')) : null,
+      noteId: fret?.hasAttribute('data-id') ? Number(fret.getAttribute('data-id')) : null, shift: e.shiftKey };
     // Long-press (touch) opens the note editor, like a double-click or right-click.
     const { clientX, clientY } = e, target = e.target as Element;
     clearTimeout(press.current);
@@ -114,6 +115,13 @@ export function TabView() {
       return;
     }
     // Clicks land on notes: the nearest note start (or, while editing, where a note ends, to fill a gap).
+    // Clicking a fret number selects that note (Shift adds), so typing a number fixes its fret, like Guitar Pro.
+    if (d.noteId !== null) {
+      const id = d.noteId;
+      const next = new Set(d.shift ? selection.value : []);
+      if (d.shift && next.has(id)) next.delete(id); else next.add(id);
+      selection.value = next;
+    } else if (!d.shift) selection.value = new Set();
     const t = d.noteStart ?? snapToNote(s.notes, d.tick, editMode.value) ?? snap(d.tick);
     if (editMode.value) placeCursor(t); // cursor goes AT the clicked note, so the next fret click lands in front of it
     seek(t);
@@ -187,6 +195,9 @@ export function TabView() {
         {lp && shade(lp.start, lp.end, 'tv-loop')}
         {dragLoop && shade(Math.min(dragLoop.a, dragLoop.b), Math.max(dragLoop.a, dragLoop.b), 'tv-loop preview')}
         {els}
+        {s.notes.filter(n => sel.has(n.id)).map(n => ( // the note(s) a typed number will change
+          <rect key={`sb${n.id}`} class="tv-selbox" x={xAt(n.start) - 10} y={rowTop(barOf(n.start)) + n.string * GAP - 8} width={20} height={16} rx={4} />
+        ))}
         {editMode.value && (() => {
           const cb = barOf(cursor.value);
           return <line class="tv-cursor" x1={xAt(cursor.value) - 7} x2={xAt(cursor.value) - 7} y1={rowTop(cb) - 10} y2={rowTop(cb) + STAFF_H + 10} />;

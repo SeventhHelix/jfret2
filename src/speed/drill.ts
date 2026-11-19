@@ -5,7 +5,9 @@ import type { Pos } from '../learn/fretmap';
 
 /** One note of a phrase, timed in ticks from the phrase start. */
 export type PNote = Omit<Note, 'id'>;
-export type Phrase = { notes: PNote[]; len: number };
+/** A stretch played faster than the tempo (factor 1.2 = 20% faster). */
+export type Faster = { start: number; end: number; factor: number };
+export type Phrase = { notes: PNote[]; len: number; tempo?: Faster[] };
 
 export type DrillId = 'steady' | 'burst' | 'chunks' | 'rhythms';
 export const DRILL_INFO: { id: DrillId; name: string; short: string; why: string }[] = [
@@ -14,8 +16,8 @@ export const DRILL_INFO: { id: DrillId; name: string; short: string; why: string
     why: 'Plain repetition at a tempo you can play cleanly. Use it to find your clean tempo, then switch to a drill that pushes past it.',
   },
   {
-    id: 'burst', name: 'Speed bursts', short: 'Slow reps, then the same notes twice as fast',
-    why: "The slow reps set up the motion; the fast reps (double time, same tempo) make your hands play faster than they can sustain yet. Short bursts above your limit are how the limit moves. Stay relaxed in the fast part: if it tenses up, lower the tempo, don't push through.",
+    id: 'burst', name: 'Speed bursts', short: 'Reps at your tempo, then a few reps a bit faster',
+    why: "The reps at your tempo set up the motion; the faster reps push your hands a little past what they can sustain yet, for just a few seconds. Short bursts above your limit are how the limit moves. Start around 10-20% faster; if the fast part tenses up, make the jump smaller rather than pushing through.",
   },
   {
     id: 'chunks', name: 'Chunks + rests', short: 'A few notes at full speed, then a rest',
@@ -27,8 +29,9 @@ export const DRILL_INFO: { id: DrillId; name: string; short: string; why: string
   },
 ];
 
-export type DrillCfg = { id: DrillId; reps: number; slow: number; fast: number; chunk: number };
-export const DEFAULT_DRILL: DrillCfg = { id: 'burst', reps: 2, slow: 2, fast: 2, chunk: 4 };
+export type DrillCfg = { id: DrillId; reps: number; slow: number; fast: number; faster: number; chunk: number }; // faster: % for burst reps
+export const DEFAULT_DRILL: DrillCfg = { id: 'burst', reps: 2, slow: 2, fast: 2, faster: 20, chunk: 4 };
+export const FASTER_STEPS = [5, 10, 15, 20, 25, 30, 40, 50, 75, 100];
 
 /** Note value per pattern note, in ticks. */
 export const SUBDIVISIONS: { ticks: number; name: string; short: string }[] = [
@@ -56,12 +59,14 @@ export function scaleTime(ph: Phrase, factor: number): Phrase {
 
 function concat(parts: Phrase[]): Phrase {
   const notes: PNote[] = [];
+  const tempo: Faster[] = [];
   let t = 0;
   for (const p of parts) {
     for (const n of p.notes) notes.push({ ...n, start: n.start + t });
+    for (const f of p.tempo ?? []) tempo.push({ ...f, start: f.start + t, end: f.end + t });
     t += p.len;
   }
-  return { notes, len: t };
+  return tempo.length ? { notes, len: t, tempo } : { notes, len: t };
 }
 
 /** Event start times (a chord is one event). */
@@ -112,7 +117,8 @@ export function buildCycle(ph: Phrase, d: DrillCfg): Phrase {
   switch (d.id) {
     case 'steady': return concat(Array(Math.max(1, d.reps)).fill(ph));
     case 'burst': {
-      const fast = scaleTime(ph, 0.5);
+      // Same notes, same notation; the player just takes these reps faster.
+      const fast: Phrase = { ...ph, tempo: [{ start: 0, end: ph.len, factor: 1 + Math.max(1, d.faster) / 100 }] };
       return concat([...Array(Math.max(1, d.slow)).fill(ph), ...Array(Math.max(1, d.fast)).fill(fast)]);
     }
     case 'chunks': return chunked(ph, Math.max(2, d.chunk));

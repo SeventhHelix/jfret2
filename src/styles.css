@@ -429,3 +429,43 @@ button.wrong { background: #f871711f; border-color: var(--danger); color: #fecac
 .fb-cell.lr-flash.fb .fb-dot { animation: lr-flash-b 1.5s ease-in forwards; }
 @keyframes lr-flash-a { 0%, 45% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.8); } }
 @keyframes lr-flash-b { 0%, 45% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.8); } }
+.key-alts { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.sp-faster { fill: var(--accent); font-size: 11px; font-weight: 700; }
+.sp-bpm b.sp-fast { color: var(--accent); }
+
+/* Metronome */
+.metro { display: flex; flex-direction: column; gap: 12px; }
+.mt-main { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 20px 12px; }
+.mt-tempo { display: flex; align-items: center; gap: 8px; }
+.mt-tempo button { min-width: 52px; font-size: 18px; font-weight: 600; padding: 8px 10px; }
+input.mt-bpm { width: 140px; font-size: 56px; font-weight: 700; text-align: center; background: transparent; border-color: transparent; font-variant-numeric: tabular-nums; padding: 0; -moz-appearance: textfield; }
+input.mt-bpm::-webkit-inner-spin-button, input.mt-bpm::-webkit-outer-spin-button { -webkit-appearance: none; }
+input.mt-bpm:hover, input.mt-bpm:focus { border-color: var(--line); }
+.mt-tempo-row { display: flex; align-items: center; gap: 10px; width: min(460px, 100%); }
+.mt-tempo-row input[type=range] { flex: 1; }
+.mt-beats { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.mt-beat { width: 46px; height: 46px; border-radius: 50%; font-weight: 700; padding: 0; transition: background-color 0.05s, transform 0.05s; }
+.mt-beat.accent { border: 2px solid var(--accent); color: var(--accent); }
+.mt-beat.beat { border: 2px solid var(--line-strong); }
+.mt-beat.off { opacity: 0.35; border-style: dashed; }
+.mt-beat.lit.accent { background: var(--accent); color: #1a1200; transform: scale(1.12); }
+.mt-beat.lit.beat { background: var(--soft); border-color: var(--soft); color: #fff; transform: scale(1.08); }
+.mt-beat.lit.off { background: var(--panel2); opacity: 0.6; }
+.mt-opts { display: flex; flex-direction: column; gap: 10px; width: min(460px, 100%); }
+.mt-step { display: inline-flex; align-items: center; gap: 10px; }
+.mt-step b { min-width: 20px; text-align: center; font-size: 17px; }
+.mt-level { display: flex; align-items: center; gap: 10px; }
+.mt-level > .muted { width: 84px; }
+.mt-level input { flex: 1; }
+@media (max-width: 700px) {
+  .metro { gap: 6px; }
+  .mt-main { gap: 14px; padding: 14px 6px; }
+  .mt-tempo { gap: 5px; }
+  .mt-tempo button { min-width: 44px; font-size: 16px; padding: 8px 6px; }
+  input.mt-bpm { width: 110px; font-size: 46px; }
+}
+.tv-selbox { fill: none; stroke: var(--sel); stroke-width: 1.5; pointer-events: none; }
+.section-nav button:not(.on) .lbl { display: none; }
+@media (max-width: 700px) {
+  .learn .header select:not(.section-pick) { max-width: 44vw; text-overflow: ellipsis; }
+}

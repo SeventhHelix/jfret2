@@ -55,13 +55,13 @@ describe('patterns', () => {
 
 describe('drills', () => {
   const ph = phraseOf(generate(base).slice(0, 8), 12); // 8 eighth notes = 1 bar
-  it('bursts: slow reps then double-time reps', () => {
-    const d: DrillCfg = { id: 'burst', reps: 2, slow: 2, fast: 2, chunk: 4 };
+  it('bursts: reps at tempo, then the same notes marked faster', () => {
+    const d: DrillCfg = { id: 'burst', reps: 2, slow: 2, fast: 2, faster: 20, chunk: 4 };
     const c = buildCycle(ph, d);
-    expect(c.len).toBe(96 * 2 + 48 * 2);
+    expect(c.len).toBe(96 * 4);
     expect(c.notes).toHaveLength(32);
-    const fast = c.notes.filter(n => n.start >= 192);
-    expect(fast.every(n => n.dur === 6)).toBe(true);
+    expect(c.notes.every(n => n.dur === 12)).toBe(true);
+    expect(c.tempo).toEqual([{ start: 192, end: 288, factor: 1.2 }, { start: 288, end: 384, factor: 1.2 }]);
   });
 
   it('halving time', () => {
@@ -84,7 +84,7 @@ describe('drills', () => {
 
   it('cycles become valid songs', () => {
     for (const id of ['steady', 'burst', 'chunks', 'rhythms'] as const) {
-      const s = toSong(buildCycle(ph, { id, reps: 2, slow: 2, fast: 2, chunk: 5 }), 100, 'x');
+      const s = toSong(buildCycle(ph, { id, reps: 2, slow: 2, fast: 2, faster: 20, chunk: 5 }), 100, 'x');
       expect(normalizeNotes(s.notes)).toHaveLength(s.notes.length); // one note per string at a time, nothing dropped
       expect(s.notes.every(n => Number.isInteger(n.start) && Number.isInteger(n.dur) && n.dur > 0)).toBe(true);
     }

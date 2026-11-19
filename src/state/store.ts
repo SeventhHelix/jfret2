@@ -1,6 +1,6 @@
 import { batch, computed, effect, signal } from '@preact/signals';
-import { Song, barTicks, beatTicks, emptySong, notesInRange, pitchOf, songEndTick, soundingAt } from '../model/song';
-import { SCALES, ScaleId, guessRoot, scalePitchClasses, songPitchClasses } from '../model/theory';
+import { MAX_FRET, Song, barTicks, beatTicks, emptySong, notesInRange, pitchOf, songEndTick, soundingAt } from '../model/song';
+import { SCALES, ScaleId, detectKeys, guessRoot, scaleForRoot, scalePitchClasses, songPitchClasses } from '../model/theory';
 import { addNote, copyNotes, deleteNotes, duplicateNotes, NewNote, pasteNotes, setDuration, setNotes, shiftFrets, shiftFrom } from '../model/ops';
 import { History } from '../model/history';
 import type { FlowGrouping } from '../model/flow';
@@ -228,7 +228,7 @@ export function setLoopFromSelection() {
  */
 export function toggleLoop() {
   const sel = song.value.notes.filter(n => selection.value.has(n.id));
-  if (sel.length) {
+  if (sel.length > 1) { // one selected note is a note being fixed, not a range to loop
     const start = Math.min(...sel.map(n => n.start)), end = Math.max(...sel.map(n => n.start + n.dur));
     if (loopOn.value && loop.value?.start === start && loop.value.end === end) loopOn.value = false;
     else setLoop(start, end);
@@ -354,7 +354,7 @@ export const cursorIds = computed(() => idSet(song.value.notes.filter(n => n.sta
 
 export const softSource = computed<'live' | 'selection' | 'loop' | 'bar'>(() => {
   if (fretMode.value === 'live') return 'live';
-  if (selection.value.size) return 'selection';
+  if (selection.value.size > 1) return 'selection'; // one selected note is a note being fixed: keep showing its bar
   if (loopOn.value && loop.value) return 'loop';
   return 'bar';
 });
@@ -632,22 +632,44 @@ export function selectBar(b: number) {
 
 // ---- scale guide (per-viewer, not part of the share link) ----
 export type LabelMode = 'fret' | 'note' | 'interval';
-export type Guide = { on: boolean; root: number | null; scale: ScaleId; labels: LabelMode };
+/** 'auto' = the scale that fits the notes (see detectKeys). */
+export type GuideScale = ScaleId | 'auto';
+export type Guide = { on: boolean; root: number | null; scale: GuideScale; labels: LabelMode; v?: number };
 const GUIDE_KEY = 'jfret:guide';
 function loadGuide(): Guide {
-  const d: Guide = { on: false, root: null, scale: 'song', labels: 'fret' };
-  try { return { ...d, ...JSON.parse(localStorage.getItem(GUIDE_KEY) ?? '{}') }; } catch { return d; }
+  const d: Guide = { on: false, root: null, scale: 'auto', labels: 'fret', v: 2 };
+  try {
+    const saved = JSON.parse(localStorage.getItem(GUIDE_KEY) ?? '{}');
+    // v2 brought key detection: older saves move to Auto (their root/scale choices were mostly the old guesses).
+    return saved.v === 2 ? { ...d, ...saved } : { ...d, on: !!saved.on, labels: saved.labels ?? d.labels };
+  } catch { return d; }
 }
 export const guide = signal<Guide>(loadGuide());
 effect(() => { try { localStorage.setItem(GUIDE_KEY, JSON.stringify(guide.value)); } catch { /* ignore */ } });
 export function setGuide(patch: Partial<Guide>) {
   guide.value = { ...guide.value, ...patch };
 }
-/** Root pitch class in use: the chosen one, or a guess from the riff (its lowest note). */
-export const guideRoot = computed(() => guide.value.root ?? guessRoot(song.value));
+/** The notes the key is worked out from: the loop while one is on (a solo inside a song), else the whole riff. */
+const keySource = computed(() => {
+  const s = song.value;
+  const lp = loopOn.value ? loop.value : null;
+  const notes = lp ? s.notes.filter(n => n.start >= lp.start && n.start < lp.end) : s.notes;
+  return notes.filter(n => !n.tech?.dead).map(n => ({ pitch: pitchOf(s, n), start: n.start, dur: n.dur }));
+});
+/** Likely keys, best first (up to 3). */
+export const detectedKeys = computed(() => detectKeys(keySource.value, beatTicks(song.value.timeSig)));
+/** Root pitch class in use: the chosen one, or the detected key's tonic. */
+export const guideRoot = computed(() => guide.value.root ?? detectedKeys.value[0]?.root ?? guessRoot(song.value));
+/** The scale in use: the chosen one, or the one that fits the notes on that root. */
+export const guideScaleId = computed<ScaleId>(() => {
+  const g = guide.value;
+  if (g.scale !== 'auto') return g.scale;
+  if (g.root === null) return detectedKeys.value[0]?.scale ?? 'minor';
+  return scaleForRoot(keySource.value, g.root, beatTicks(song.value.timeSig));
+});
 /** Pitch classes of the guide scale. "Notes in this riff" uses exactly the riff's notes. */
 export const guideScale = computed(() =>
-  guide.value.scale === 'song' ? songPitchClasses(song.value) : scalePitchClasses(guideRoot.value, SCALES[guide.value.scale]));
+  guideScaleId.value === 'song' ? songPitchClasses(song.value) : scalePitchClasses(guideRoot.value, SCALES[guideScaleId.value]));
 
 // ---- playing techniques ----
 /** Notes the technique buttons act on: the selection, else the note just entered, else the note at the insert cursor. */
@@ -688,7 +710,7 @@ export function deleteOpenNotes() {
 }
 
 // ---- sections: Play (the riff sketcher), Learn (fretboard knowledge drills), Speed (technique trainer) ----
-export type Section = 'play' | 'learn' | 'speed';
+export type Section = 'play' | 'learn' | 'speed' | 'metro';
 const SECTION_KEY = 'jfret:section';
 function loadSection(): Section {
   // Someone's riff link opens the riff. (Your own last riff is always in the URL too, so that one doesn't count.)
@@ -697,7 +719,7 @@ function loadSection(): Section {
   try { own = localStorage.getItem(LS_KEY); } catch { /* storage unavailable */ }
   if (p && p !== own) return 'play';
   const v = readJson(SECTION_KEY);
-  return v === 'learn' || v === 'speed' ? v : 'play';
+  return v === 'learn' || v === 'speed' || v === 'metro' ? v : 'play';
 }
 export const section = signal<Section>(loadSection());
 export function setSection(s: Section) {
@@ -722,4 +744,25 @@ export function openInPlay(next: Song) {
     editMode.value = true;
   });
   setSection('play');
+}
+
+// ---- Guitar Pro-style fret typing: select a note, type its fret ----
+let fretTyping = { text: '', at: 0, ids: '' };
+/**
+ * A digit typed with notes selected sets their fret. A second digit within a moment makes a two-digit fret
+ * (1 then 2 = 12) as one undo step; anything above the top fret starts over from the new digit.
+ */
+export function typeFret(digit: string) {
+  const ids = selection.value;
+  if (!ids.size) return;
+  const key = [...ids].sort((a, b) => a - b).join();
+  const now = Date.now();
+  const cont = fretTyping.ids === key && now - fretTyping.at < 1000 && fretTyping.text.length === 1;
+  let text = cont ? fretTyping.text + digit : digit;
+  if (Number(text) > MAX_FRET) text = digit;
+  if (cont && text.length === 2) undo(); // replace the one-digit step, so 1-2 undoes straight back to the old fret
+  fretTyping = { text, at: now, ids: key };
+  commit(setNotes(song.value, ids, { fret: Number(text) }));
+  const n = song.value.notes.find(m => ids.has(m.id));
+  if (n && !playing.value) previewNote(n.string, n.fret);
 }

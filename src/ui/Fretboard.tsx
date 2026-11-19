@@ -2,20 +2,27 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { MAX_FRET, Note, STRINGS, TUNINGS, barTicks, beatTicks, noteName, notesInRange, pitchOf } from '../model/song';
 import {
-  cursor, cursorIds, editMode, fretMode, guide, guideRoot, guideScale, hotIds, insertNote, nextIds, playhead, playing, previewNote,
+  cursor, cursorIds, detectedKeys, loopOn, editMode, fretMode, guide, guideRoot, guideScale, guideScaleId, hotIds, insertNote, nextIds, playhead, playing, previewNote,
   setGuide, softIds, softSource,
   layout, openNoteEditor, song, view,
 } from '../state/store';
 import { intervalHue, noteHue } from './colors';
 import { focusRange, fretWidth } from '../model/layout';
 import { FlowPt, groupLinks } from '../model/flow';
-import { PITCH_NAMES, SCALE_NAMES, ScaleId, guessRoot, intervalName, pc } from '../model/theory';
+import { PITCH_NAMES, SCALE_NAMES, ScaleId, intervalName, pc } from '../model/theory';
+import { keyName } from '../learn/fretmap';
 
 const ROW_H = 52;
 const OPEN_W = 52;
 let FRET_W = 64; // set each render from the View menu's Neck mode (the helpers below read it)
 const SINGLE_DOTS = [3, 5, 7, 9, 15, 17, 19, 21];
 const DOUBLE_DOTS = [12, 24];
+
+const minorish = (sc: ScaleId) => ['minor', 'dorian', 'phrygian', 'harmonicMinor', 'minorPent', 'blues', 'locrian'].includes(sc);
+const SHORT_SCALE: Partial<Record<ScaleId, string>> = {
+  major: 'major', minor: 'minor', minorPent: 'minor pent.', majorPent: 'major pent.', harmonicMinor: 'harm. minor',
+  dorian: 'Dorian', phrygian: 'Phrygian', lydian: 'Lydian', mixolydian: 'Mixolydian', blues: 'blues',
+};
 
 const cellX = (f: number) => (f === 0 ? 0 : OPEN_W + (f - 1) * FRET_W);
 const cellW = (f: number) => (f === 0 ? OPEN_W : FRET_W);
@@ -60,9 +67,10 @@ export function Fretboard() {
   const atCursor = edit && !playing.value ? cursorIds.value : new Set<number>();
   const src = softSource.value;
   const g = guide.value;
+  const keys = detectedKeys.value;
   const root = guideRoot.value;
   const scale = g.on ? guideScale.value : null;
-  const strictScale = !!scale && g.scale !== 'song'; // only a chosen scale can make a riff note "wrong"
+  const strictScale = !!scale && guideScaleId.value !== 'song'; // only a chosen scale can make a riff note "wrong"
 
   const cells = new Map<string, Cell>();
   const cellAt = (n: Note) => {
@@ -274,16 +282,27 @@ export function Fretboard() {
                 Root{' '}
                 <select value={g.root === null ? 'auto' : String(g.root)}
                   onChange={e => { const v = e.currentTarget.value; setGuide({ root: v === 'auto' ? null : Number(v) }); e.currentTarget.blur(); }}>
-                  <option value="auto">Auto ({PITCH_NAMES[guessRoot(s)]})</option>
+                  <option value="auto">Auto ({keys[0] ? keyName(keys[0].root, minorish(keys[0].scale)) : '?'})</option>
                   {PITCH_NAMES.map((nm, i) => <option key={nm} value={String(i)}>{nm}</option>)}
                 </select>
               </label>
               <label class="muted">
                 Scale{' '}
-                <select value={g.scale} onChange={e => { setGuide({ scale: e.currentTarget.value as ScaleId }); e.currentTarget.blur(); }}>
+                <select value={g.scale} onChange={e => { setGuide({ scale: e.currentTarget.value as ScaleId | 'auto' }); e.currentTarget.blur(); }}>
+                  <option value="auto">Auto ({SCALE_NAMES[guideScaleId.value]})</option>
                   {(Object.keys(SCALE_NAMES) as ScaleId[]).map(id => <option key={id} value={id}>{SCALE_NAMES[id]}</option>)}
                 </select>
               </label>
+              {g.root === null && g.scale === 'auto' && keys.length > 1 && (
+                <span class="muted key-alts" title={`Worked out from ${loopOn.value ? 'the looped part' : 'the whole riff'}. Click another guess to use it.`}>
+                  {keys[0].fit < 1 && <>{Math.round((1 - keys[0].fit) * 100)}% outside · </>}or{' '}
+                  {keys.slice(1).map(k => (
+                    <button key={k.root} class="mini" onClick={() => setGuide({ root: k.root, scale: k.scale })}>
+                      {keyName(k.root, minorish(k.scale))} {SHORT_SCALE[k.scale] ?? SCALE_NAMES[k.scale]}
+                    </button>
+                  ))}
+                </span>
+              )}
               <span class="scale-notes">
                 {[...scale!].sort((a, b) => pc(a - root) - pc(b - root)).map(p => (
                   <span key={p} class={p === root ? 'sn root' : 'sn'} style={{ '--ic': intervalHue(p - root) } as JSX.CSSProperties}>

@@ -54,3 +54,92 @@ export function guessRoot(song: Song): number {
   if (!song.notes.length) return 4;
   return pc(Math.min(...song.notes.map(n => pitchOf(song, n))));
 }
+
+// ---- key detection ----
+// Krumhansl-Kessler key profiles: how strongly each scale degree (from the tonic) belongs to a major / minor key.
+const KK_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+const KK_MINOR = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+
+export type KeyGuess = {
+  root: number;       // tonic pitch class
+  scale: ScaleId;     // best-fitting scale on that tonic
+  fit: number;        // share of the (weighted) notes inside that scale, 0..1
+  confidence: number; // 0..1: how clearly this key beats the next one
+};
+
+type Weighted = { pitch: number; start: number; dur: number };
+
+function correlate(a: number[], b: number[]): number {
+  const ma = a.reduce((x, y) => x + y, 0) / 12, mb = b.reduce((x, y) => x + y, 0) / 12;
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < 12; i++) { num += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2; }
+  return da && db ? num / Math.sqrt(da * db) : 0;
+}
+
+/** Share of the histogram's weight that falls inside a scale. */
+function fitOf(hist: number[], root: number, steps: number[]): number {
+  const total = hist.reduce((a, b) => a + b, 0);
+  if (!total) return 0;
+  return steps.reduce((a, s) => a + hist[pc(root + s)], 0) / total;
+}
+
+/**
+ * The likely keys of some notes, best first. Notes count by length (capped, so one held note doesn't swamp a run),
+ * a little extra on the beat; the lowest, first and last notes nudge which note is home, since riffs and solos
+ * tend to start, end and sit on the tonic. Then the mode that fits the notes best (major/minor family, pentatonic
+ * or blues when every note fits) is picked for each tonic.
+ */
+export function detectKeys(notes: Weighted[], beat = 24): KeyGuess[] {
+  if (!notes.length) return [];
+  const hist = new Array(12).fill(0);
+  for (const n of notes) hist[pc(n.pitch)] += Math.min(n.dur, beat * 2) + (n.start % beat === 0 ? beat / 4 : 0);
+  const total = hist.reduce((a, b) => a + b, 0);
+  const sorted = [...notes].sort((a, b) => a.start - b.start);
+  const home = new Array(12).fill(0);
+  home[pc(Math.min(...notes.map(n => n.pitch)))] += 0.06;
+  home[pc(sorted[0].pitch)] += 0.04;
+  home[pc(sorted[sorted.length - 1].pitch)] += 0.05;
+
+  const cands: { root: number; minor: boolean; score: number }[] = [];
+  for (let r = 0; r < 12; r++) {
+    const rot = hist.map((_, i) => hist[(i + r) % 12]);
+    cands.push({ root: r, minor: false, score: correlate(rot, KK_MAJOR) + home[r] + 0.25 * hist[r] / total });
+    cands.push({ root: r, minor: true, score: correlate(rot, KK_MINOR) + home[r] + 0.25 * hist[r] / total });
+  }
+  cands.sort((a, b) => b.score - a.score);
+
+  const MAJOR_FAMILY: ScaleId[] = ['major', 'mixolydian', 'lydian'];
+  const MINOR_FAMILY: ScaleId[] = ['minor', 'dorian', 'phrygian', 'harmonicMinor'];
+  const out: KeyGuess[] = [];
+  for (const c of cands) {
+    if (out.some(k => k.root === c.root)) continue;
+    // The first in each family wins ties: plain major/minor unless another mode clearly fits better.
+    let best: { scale: ScaleId; fit: number } = { scale: c.minor ? 'minor' : 'major', fit: 0 };
+    for (const s of c.minor ? MINOR_FAMILY : MAJOR_FAMILY) {
+      const f = fitOf(hist, c.root, SCALES[s]);
+      if (f > best.fit + 0.02) best = { scale: s, fit: f };
+    }
+    // Everything inside the pentatonic (or blues)? Show that: it's what the player is actually using.
+    const pent: ScaleId = c.minor ? 'minorPent' : 'majorPent';
+    if (fitOf(hist, c.root, SCALES[pent]) >= 0.995) best = { scale: pent, fit: 1 };
+    else if (c.minor && fitOf(hist, c.root, SCALES.blues) >= 0.995) best = { scale: 'blues', fit: 1 };
+    out.push({ root: c.root, scale: best.scale, fit: best.fit, confidence: 0 });
+    if (out.length === 3) break;
+  }
+  const scoreOf = (k: KeyGuess) => cands.find(c => c.root === k.root)!.score;
+  for (let i = 0; i < out.length; i++) {
+    const gap = scoreOf(out[i]) - (out[i + 1] ? scoreOf(out[i + 1]) : scoreOf(out[i]) - 0.3);
+    out[i].confidence = Math.max(0, Math.min(1, gap / 0.3));
+  }
+  return out;
+}
+
+/** With the tonic already chosen: the scale on it that fits these notes best (minor or major family by the 3rd). */
+export function scaleForRoot(notes: Weighted[], root: number, beat = 24): ScaleId {
+  const k = detectKeys(notes, beat);
+  const hit = k.find(x => x.root === pc(root));
+  if (hit) return hit.scale;
+  const hist = new Array(12).fill(0);
+  for (const n of notes) hist[pc(n.pitch)] += Math.min(n.dur, beat * 2);
+  return hist[pc(root + 3)] > hist[pc(root + 4)] ? 'minor' : 'major';
+}

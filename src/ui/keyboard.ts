@@ -3,7 +3,7 @@ import { moveNotes } from '../model/ops';
 import { TechFlag, cycleBend, toggleTech } from '../model/tech';
 import {
   applyTech, commit, copySelection, cutSelection, deleteBeforeCursor, deleteSelection, duplicateSelection, editMode, grid, nudgeFrets,
-  importFile, noteEditor, section, openNoteEditor, pasteAtCursor, redo, selectAll, selection, setBaseLength, song, toggleDotted, toggleLoop, togglePlay, toggleTriplet, undo,
+  importFile, noteEditor, section, typeFret, openNoteEditor, pasteAtCursor, redo, selectAll, selection, setBaseLength, song, toggleDotted, toggleLoop, togglePlay, toggleTriplet, undo,
 } from '../state/store';
 
 // 1=whole 2=half 3=quarter 4=8th 5=16th 6=32nd
@@ -25,13 +25,15 @@ export function useKeyboard() {
       if (mod && key === 'y') { e.preventDefault(); redo(); return; }
       if (!mod && key === 'l') { e.preventDefault(); toggleLoop(); return; }
       if (e.key === 'Escape') { selection.value = new Set(); return; }
+      // Guitar Pro style: with a note selected (click it in the tab), digits type its fret. Works in Practice too.
+      if (/^[0-9]$/.test(e.key) && !mod && !e.altKey && selection.value.size) { e.preventDefault(); typeFret(e.key); return; }
       if (!editMode.value) return;
       if (mod && key === 'a') { e.preventDefault(); selectAll(); return; }
       if (mod && key === 'c') { e.preventDefault(); copySelection(); return; }
       if (mod && key === 'x') { e.preventDefault(); cutSelection(); return; }
       if (mod && key === 'v') { e.preventDefault(); pasteAtCursor(); return; }
       if (mod && key === 'd') { e.preventDefault(); duplicateSelection(); return; }
-      if (DUR_KEYS[e.key] && !mod) { setBaseLength(DUR_KEYS[e.key]); return; } // also resets selected notes
+      if (DUR_KEYS[e.key] && !mod) { setBaseLength(DUR_KEYS[e.key]); return; } // (no selection here: digits type frets then)
       if (e.key === '.' && !mod) { toggleDotted(); return; }
       if (key === 't' && !mod) { toggleTriplet(); return; }
       if (!mod && !e.altKey) { // techniques: selection, else the note just entered / at the cursor

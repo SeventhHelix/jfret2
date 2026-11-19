@@ -62,6 +62,7 @@ export function MyTabs() {
             <button class="on">♪ Play</button>
             <button onClick={() => { closeMenu(); setSection('learn'); }}>◎ Learn</button>
             <button onClick={() => { closeMenu(); setSection('speed'); }}>⚡ Speed</button>
+            <button onClick={() => { closeMenu(); setSection('metro'); }}>⏱ Metronome</button>
           </span>
         </div>
         <div class="mt-head">

@@ -12,6 +12,7 @@ import type { PanelId } from '../model/layout';
 import { editMode, errorMsg, importFile, layout, section } from '../state/store';
 import { Learn } from './Learn';
 import { Speed } from './Speed';
+import { Metro } from './Metro';
 
 /** Dropping a Guitar Pro file anywhere on the page opens the import dialog. */
 function useFileDrop() {
@@ -37,6 +38,7 @@ export function App() {
   const l = layout.value;
   if (section.value === 'learn') return <div class="app"><Learn /></div>;
   if (section.value === 'speed') return <div class="app"><Speed /></div>;
+  if (section.value === 'metro') return <div class="app"><Metro /></div>;
   // Panels in the order and visibility chosen in the View menu. The editor only exists in Edit mode.
   const panel = (id: PanelId) =>
     id === 'tab' ? <TabView /> : id === 'fretboard' ? <Fretboard /> : editMode.value ? <Editor /> : null;
@@ -64,12 +66,13 @@ function Editor() {
             <span>Drag a block to move it; drag its right edge to resize</span>
             <span>Drag across the tab to loop</span>
             <span><kbd>Space</kbd> play</span>
-            <span><kbd>1</kbd>–<kbd>6</kbd> note length, <kbd>.</kbd> dotted, <kbd>T</kbd> triplet</span>
+            <span><kbd>1</kbd>–<kbd>6</kbd> note length (with nothing selected), <kbd>.</kbd> dotted, <kbd>T</kbd> triplet</span>
             <span><kbd>B</kbd> bend (again to change it) · <kbd>R</kbd> release · <kbd>V</kbd> vibrato · <kbd>S</kbd> slide · <kbd>H</kbd> hammer-on/pull-off · <kbd>M</kbd> palm mute · <kbd>N</kbd> harmonic · <kbd>P</kbd> pinch harmonic · <kbd>X</kbd> dead note</span>
             <span><kbd>←</kbd><kbd>→</kbd> nudge, <kbd>↑</kbd><kbd>↓</kbd> change string</span>
             <span><kbd>Alt</kbd>+<kbd>↑</kbd><kbd>↓</kbd> or mouse wheel on a note: up/down a fret</span>
             <span>Click a bar number to select the bar, <kbd>L</kbd> to loop it</span>
             <span><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate · <kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy, paste at cursor</span>
+            <span>Click a fret number in the tab, then type the new fret (<kbd>1</kbd> <kbd>2</kbd> = 12)</span>
             <span>Double-click, right-click or long-press a note (or <kbd>Enter</kbd> on a selection) to change its fret or string</span>
             <span><kbd>Backspace</kbd> remove the note you just entered</span>
             <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</span>

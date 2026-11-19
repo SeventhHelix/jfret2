@@ -3,6 +3,8 @@ import { PlayFx, getCtx, playClick, playPluck } from './synth';
 import { harmonicShift } from '../model/tech';
 
 export type LoopRange = { start: number; end: number } | null;
+/** Parts of the song played faster (factor 1.2 = 20% faster), e.g. the fast reps of a speed burst. */
+export type TempoSpan = { start: number; end: number; factor: number };
 
 const LOOKAHEAD_SEC = 0.12;
 const TIMER_MS = 25;
@@ -12,6 +14,7 @@ export class Player {
   loop: LoopRange = null;
   metronome = false;
   countIn = false;
+  tempo: TempoSpan[] = [];
 
   private song: Song = emptySong();
   private byStart = new Map<number, Note[]>();
@@ -104,8 +107,9 @@ export class Player {
     this.raf = undefined;
   }
 
-  private secPerTick(): number {
-    return 60 / (this.song.bpm * this.speed) / PPQ;
+  private secPerTick(tick = this.tick): number {
+    const span = this.tempo.find(t => tick >= t.start && tick < t.end);
+    return 60 / (this.song.bpm * this.speed * (span ? span.factor : 1)) / PPQ;
   }
 
   private schedule() {

@@ -5,6 +5,7 @@ const SECTIONS: [Section, string, string, string][] = [
   ['play', '♪', 'Play', 'Play and sketch riffs'],
   ['learn', '◎', 'Learn', 'Learn the neck: notes, intervals, chord shapes, scales'],
   ['speed', '⚡', 'Speed', 'Speed trainer: technique patterns, bursts, tempo ladder'],
+  ['metro', '⏱', 'Metronome', 'Metronome: tempo, accents, subdivisions'],
 ];
 
 export function SectionNav({ inPlay }: { inPlay?: boolean }) {

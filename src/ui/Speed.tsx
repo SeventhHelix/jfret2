@@ -13,8 +13,8 @@ import { PPQ, Song, TUNINGS } from '../model/song';
 import { posKey } from '../learn/fretmap';
 import { DIR_NAMES, PATTERNS, PatternCfg, SEQ_NAMES, generate } from '../speed/patterns';
 import {
-  DEFAULT_DRILL, DEFAULT_LADDER, DRILL_INFO, DrillCfg, Ladder, Phrase, SUBDIVISIONS, buildCycle, cycleTicks, ladderNext, notesPerSec,
-  phraseOf, toSong,
+  DEFAULT_DRILL, DEFAULT_LADDER, DRILL_INFO, FASTER_STEPS, DrillCfg, Ladder, Phrase, SUBDIVISIONS, buildCycle, cycleTicks, ladderNext, notesPerSec,
+  Faster, phraseOf, toSong,
 } from '../speed/drill';
 import { fretHue } from './colors';
 import { isPhone, loop, loopOn, openInPlay, selection, song } from '../state/store';
@@ -120,6 +120,7 @@ function start() {
   liveBpm.value = c.bpm;
   player.setSong({ ...toSong(cyc, c.bpm, cur.title), tuning: cur.tuning });
   player.loop = { start: 0, end: cycleTicks(cyc) };
+  player.tempo = cyc.tempo ?? [];
   player.metronome = c.click;
   player.speed = 1;
   player.play(0, true);
@@ -169,6 +170,7 @@ export function Speed() {
   const cyc = buildCycle(cur.ph, c.drill);
   const ex = { ...toSong(cyc, c.bpm, cur.title), tuning: cur.tuning };
   const drillInfo = DRILL_INFO.find(d => d.id === c.drill.id)!;
+  const span = playing.value ? (cyc.tempo ?? []).find(f => tick.value >= f.start && tick.value < f.end) : undefined;
   const bpm = playing.value ? liveBpm.value : c.bpm;
   const entry = log.value[logKey(c)];
   const restart = () => { if (playing.value) start(); };
@@ -195,7 +197,7 @@ export function Speed() {
           <button class="play" onClick={() => (playing.value ? stop() : start())} title="Start / stop (Space)">{playing.value ? '■' : '▶'}<span class="lbl">{playing.value ? ' Stop' : ' Start'}</span></button>
           <span class="sp-bpm" title="Tempo (beats per minute)">
             <button onClick={() => bumpBpm(-5)} aria-label="Slower">−</button>
-            <b>{bpm}</b><small> BPM</small>
+            <b class={span ? 'sp-fast' : ''}>{span ? Math.round(bpm * span.factor) : bpm}</b><small> BPM</small>
             <button onClick={() => bumpBpm(5)} aria-label="Faster">+</button>
           </span>
           <span class="muted sp-nps" title="Notes per second at this tempo and note value">{c.source === 'pattern' ? `${notesPerSec(bpm, c.sub).toFixed(1)} notes/s` : ''}</span>
@@ -262,7 +264,11 @@ export function Speed() {
           {c.drill.id === 'burst' && (
             <span class="muted">
               <Num value={c.drill.slow} min={1} max={8} onSet={v => setDrill({ slow: v })} w={46} /> slow, then{' '}
-              <Num value={c.drill.fast} min={1} max={8} onSet={v => setDrill({ fast: v })} w={46} /> at double speed
+              <Num value={c.drill.fast} min={1} max={8} onSet={v => setDrill({ fast: v })} w={46} /> at{' '}
+              <select value={String(c.drill.faster)} title="How much faster the burst reps are" onChange={e => { setDrill({ faster: Number(e.currentTarget.value) }); e.currentTarget.blur(); }}>
+                {FASTER_STEPS.map(p => <option key={p} value={String(p)}>+{p}%{p === 100 ? ' (double)' : ''}</option>)}
+              </select>{' '}
+              ({Math.round(c.bpm * (1 + c.drill.faster / 100))} BPM)
             </span>
           )}
           {c.drill.id === 'chunks' && (
@@ -292,7 +298,7 @@ export function Speed() {
           focus={sounding.length ? { lo: sounding[0].fret, hi: sounding[0].fret } : frets.length ? { lo: Math.min(...frets), hi: Math.max(...frets) } : null} />
       </div>
 
-      <ExerciseTab song={ex} tick={playing.value ? t : -1} />
+      <ExerciseTab song={ex} tick={playing.value ? t : -1} tempo={cyc.tempo ?? []} />
 
       <div class="panel lr-tips">
         <div class="lr-principles">
@@ -305,7 +311,7 @@ export function Speed() {
 }
 
 /** The exercise's cycle as tab, the playing note lit. */
-function ExerciseTab({ song: s, tick: t }: { song: Song; tick: number }) {
+function ExerciseTab({ song: s, tick: t, tempo }: { song: Song; tick: number; tempo: Faster[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(900);
   useEffect(() => {
@@ -331,6 +337,13 @@ function ExerciseTab({ song: s, tick: t }: { song: Song; tick: number }) {
     const y = Math.floor(b / perLine) * ROW + HEAD;
     els.push(...drawBar({ notes: s.notes, start: b * bar, len: bar, beat: 24, x0: LEFT + (b % perLine) * barW, w: barW, y, key: String(b), fretClass: n => (hot.has(n.id) ? ' hot' : '') }));
   }
+  // "+20%" over the start of each faster stretch (back-to-back reps at the same speed share one label).
+  tempo.forEach((f, i) => {
+    if (i && tempo[i - 1].end === f.start && tempo[i - 1].factor === f.factor) return;
+    const b = Math.floor(f.start / bar);
+    const x = LEFT + (b % perLine) * barW + PAD + ((f.start - b * bar) / bar) * (barW - 2 * PAD);
+    els.push(<text key={`tp${i}`} class="sp-faster" x={x} y={Math.floor(b / perLine) * ROW + HEAD - 18}>+{Math.round((f.factor - 1) * 100)}% faster</text>);
+  });
   const hb = Math.floor(t / bar);
   const headX = t >= 0 ? LEFT + (hb % perLine) * barW + PAD + ((t - hb * bar) / bar) * (barW - 2 * PAD) : 0;
   const headY = Math.floor(hb / perLine) * ROW + HEAD;

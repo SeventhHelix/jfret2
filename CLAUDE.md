@@ -46,7 +46,8 @@ src/model/song.ts      types, tunings, PPQ=24, pitch/bar helpers, normalizeNotes
 src/model/ops.ts       pure edit ops: add/move/resize/quantize/applyFeel/evenOut/legato/shiftFrom,
                        copy/paste/duplicate/shiftFrets. All go through withNotes() -> normalizeNotes
 src/model/history.ts   undo/redo snapshots
-src/model/theory.ts    scales/modes, intervals, root guess
+src/model/theory.ts    scales/modes, intervals; detectKeys (Krumhansl-Kessler profiles on duration-weighted notes, nudged by
+                       lowest/first/last note, then the best-fitting mode / pentatonic), scaleForRoot
 src/model/flow.ts      flow path grouping modes (beat/strings/contour/arc) -> which links are dotted
 src/model/library.ts   My tabs: saved songs (payload + practice params), add/update/remove/find, timeAgo
 src/model/layout.ts    layout settings (Settings menu): panels/order, sizes, bars per line, neck mode; defaults (phone vs desktop), fretWidth()
@@ -71,8 +72,9 @@ src/learn/drills.ts    Learn drills: every drill makes a Question (prompt, regio
 src/learn/stats.ts     Learn progress: per-item results, spacing weight, 8-of-10 level-up, daily streak
 src/speed/patterns.ts  Speed patterns -> spots: 3nps/pentatonic runs with sequences, one-string, pedal point,
                        string-skip arpeggio, 3/5-string sweeps, chromatic 1-2-3-4
-src/speed/drill.ts     Speed drills on a phrase: steady, bursts (double time), chunks + rests (overlap by one),
-                       dotted rhythm variations; tempo ladder; toSong() for the normal Player
+src/speed/drill.ts     Speed drills on a phrase: steady, bursts (same notes, reps marked N% faster via Phrase.tempo),
+                       chunks + rests (overlap by one), dotted rhythm variations; tempo ladder; toSong() for the normal Player
+src/audio/metronome.ts Metronome section engine (lookahead clicks, per-beat accent/beat/off, subdivision, levels), tapTempo
 src/ui/*.tsx           App, Transport (sticky header), TabView (SVG tab), Fretboard (neck + overlays),
                        TabRoll (timeline editor), Toolbar (note length + rhythm tools), Settings (the ⚙ menu), MyTabs (☰ saved songs), NoteEditor (fix a note), ImportDialog (GP track +
                        section picker) + GpTabPreview (whole track as tab, click/drag bars), tabDraw (one bar of
@@ -83,12 +85,14 @@ UI components read signals and call store actions; they never mutate the song di
 
 ## Sections
 
-Three sections (`section` signal in the store, localStorage `jfret:section`; `ui/SectionNav.tsx`): **Play** (the riff
-sketcher, everything below), **Learn** (`ui/Learn.tsx`) and **Speed** (`ui/Speed.tsx`). A link to someone else's riff
+Four sections (`section` signal in the store, localStorage `jfret:section`; `ui/SectionNav.tsx`, only the active one shows
+its name): **Play** (the riff sketcher, everything below), **Learn** (`ui/Learn.tsx`), **Speed** (`ui/Speed.tsx`) and
+**Metronome** (`ui/Metro.tsx`, settings `jfret:metro`; click volume and sound are the shared `sound` settings). A link to someone else's riff
 always opens Play. On phones Play's header has no room, so the switch is at the top of the ☰ menu; Learn/Speed use a small
 native picker. The global keyboard handler only runs in Play; Learn and Speed register their own keys.
 - Learn and Speed draw the neck with `ui/Neck.tsx` (marks, dimmed outside a region, shape outlines, taps, a focus range it
   keeps scrolled into view), not the Play fretboard. Learn stats: localStorage `jfret:learn`, options `jfret:learn-opts`.
+- `Player.tempo` (TempoSpan[]) plays parts of a song faster: Speed's burst reps. `playClick` takes a per-click level.
 - Speed has its own `Player` instance; the cycle loops and a wrap in `onTick` counts a cycle, where the ladder swaps the
   song (same notes, new bpm) via `setSong` so tempo changes without a gap. Settings `jfret:speed`, clean tempos `jfret:speed-log`.
   "Open in Play" loads the exercise as a new unsaved riff (`openInPlay`, undoable).
@@ -104,6 +108,11 @@ native picker. The global keyboard handler only runs in Play; Learn and Speed re
 - One ⚙ Settings menu (`ui/Settings.tsx`, collapsible sections Playback / Layout / Fretboard) holds count-in, sounds, layout, fretboard mode/labels/scale guide/display options. The header is one row (riff name, transport, speed, Click, ⚙, Share, Edit toggle); on narrow screens button words hide (`.lbl`) and menus open as a sheet, same layout otherwise. The fretboard has no header, only an info line (next-note spot while editing, scale while the guide is on). Layout (`layout` signal, `model/layout.ts`, localStorage `jfret:layout`, versioned by `LAYOUT_V`: phones on an older saved layout reset to the phone defaults; phones <=700px get their own defaults): panel visibility/order (tab, fretboard, editor; the header's edit row goes with the editor), full width, tab bars per line / lines shown / size, fretboard neck mode / size. TabView lays out at width/tabZoom and draws scaled via the SVG viewBox (pointer math divides by zoom). The fretboard uses CSS `zoom` (`--fbz`) on `.fb-wrap` (clicks are per-cell, scroll math stays in its own coordinates) and a per-render fret width (`FRET_W` is module-level and set each render from `fretWidth()`: fixed 64 / whole neck fitted / the bar's frets fitted). The focus (zoom, follow-scroll, hand box) comes from `focusRange()`: open strings, dead notes and a couple of stray far-off notes are ignored; notes in focus that end up off-screen get an edge marker (`.fb-edge`) on their string. TabRoll is not scaled (its drag math is in raw px).
 - Insert cursor goes AT a clicked note; inserting there ripples later notes. Shift-click on the neck stacks a chord onto the previous insert. Clicks on empty space in the tab/timeline snap to the nearest note start (`snapToNote`; while editing, also note ends so gaps can be filled). In Edit mode a fretboard tap inserts on pointer-up, so a long-press doesn't also insert.
 - Note editor (`ui/NoteEditor.tsx`, store `noteEditor`): fret / string / delete for one or more notes. Opens from double-click, right-click or long-press (500 ms timer in TabView/TabRoll; `contextmenu` on lit fretboard cells) and Enter on a selection; works in Practice mode too.
+- Fret typing (Guitar Pro style): clicking a fret number in the tab selects that note (Shift adds); digits then set the
+  fret (`typeFret`: two digits within a second = one two-digit fret, one undo step). Works in Practice too. So 1-6 only
+  pick note lengths with nothing selected. One selected note doesn't narrow the fretboard focus or the L loop (2+ do).
+- Scale guide: `guide.scale` 'auto' and `guide.root` null use `detectedKeys` (from the loop when one is on, else the whole
+  riff); the info line offers the next two guesses. `jfret:guide` v2 (older saves reset to Auto).
 - Keyboard shortcuts live in `ui/keyboard.ts` (Space, L, 1-6, ., T, B/R/V/S/H/M/N/P/X techniques, Enter = note editor on the selection, Esc, Ctrl+Z/Y/C/X/V/D, Alt+arrows, Backspace). Global keys are ignored while the import dialog or note editor is open. Keep the hint line in `App.tsx` in sync.
 
 ## Dev environment quirks

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { MAX_FRET, STRINGS, Song, TUNINGS, barTicks, beatTicks, noteName, pitchOf, songEndTick } from '../model/song';
 import { moveNotes, resizeNotes, snapToNote } from '../model/ops';
 import {
-  commitFrom, cursor, openNoteEditor, grid, guide, guideScale, hotIds, loop, loopOn, nudgeFrets, placeCursor, playhead, playing, previewNote, selectBar,
+  commitFrom, cursor, openNoteEditor, grid, guide, guideScale, guideScaleId, hotIds, loop, loopOn, nudgeFrets, placeCursor, playhead, playing, previewNote, selectBar,
   selection, song, view,
 } from '../state/store';
 import { pc } from '../model/theory';
@@ -151,7 +151,7 @@ export function TabRoll() {
   const hot = hotIds.value;
   const tint = view.value.colour;
   const hueOf = noteHue.value;
-  const scale = guide.value.on && guide.value.scale !== 'song' ? guideScale.value : null;
+  const scale = guide.value.on && guideScaleId.value !== 'song' ? guideScale.value : null;
   // Wheel over a note: fine-tune its pitch a semitone along its string (the whole selection if it's selected).
   const onWheel = (e: WheelEvent, id: number) => {
     if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // horizontal scroll intent
