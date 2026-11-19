@@ -70,7 +70,6 @@ export function Metro() {
       <div class="panel header">
         <div class="row">
           <SectionNav />
-          <button class="play" onClick={toggle} title="Start / stop (Space)">{running.value ? '■' : '▶'}<span class="lbl">{running.value ? ' Stop' : ' Start'}</span></button>
           <span class="spacer" />
         </div>
       </div>
@@ -90,6 +89,10 @@ export function Metro() {
           <input type="range" min={30} max={300} value={c.bpm} onInput={e => setBpm(Number(e.currentTarget.value))} aria-label="Tempo" />
           <button onClick={tap} title="Tap along to set the tempo (T)">Tap</button>
         </div>
+
+        <button class={`mt-go${running.value ? ' on' : ''}`} onClick={toggle} title="Start / stop (Space)">
+          {running.value ? '■ Stop' : '▶ Start'}
+        </button>
 
         <div class="mt-beats" role="group" aria-label="Beats: click one to change its accent">
           {c.beats.map((k, i) => (

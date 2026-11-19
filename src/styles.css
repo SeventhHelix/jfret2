@@ -469,3 +469,10 @@ input.mt-bpm:hover, input.mt-bpm:focus { border-color: var(--line); }
 @media (max-width: 700px) {
   .learn .header select:not(.section-pick) { max-width: 44vw; text-overflow: ellipsis; }
 }
+
+/* Big start/stop where you're looking (Metronome, Speed) */
+.mt-go { min-width: 180px; padding: 12px 28px; font-size: 20px; font-weight: 700; border-radius: 999px; background: var(--soft); border-color: var(--soft); color: #fff; }
+.mt-go:hover { filter: brightness(1.1); border-color: var(--soft); }
+.mt-go.on { background: var(--panel2); border-color: var(--accent); color: var(--accent); }
+.mt-go.small { min-width: 120px; padding: 6px 18px; font-size: 16px; }
+.sp-playbar { margin-bottom: 10px; }

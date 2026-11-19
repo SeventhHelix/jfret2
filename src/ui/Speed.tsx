@@ -293,7 +293,21 @@ export function Speed() {
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel sp-stage">
+        {/* The controls you need while playing, right where you're looking. */}
+        <div class="row sp-playbar">
+          <button class={`mt-go small${playing.value ? ' on' : ''}`} onClick={() => (playing.value ? stop() : start())} title="Start / stop (Space)">
+            {playing.value ? '■ Stop' : '▶ Start'}
+          </button>
+          <span class="sp-bpm" title="Tempo (beats per minute)">
+            <button onClick={() => bumpBpm(-5)} aria-label="Slower">−</button>
+            <b class={span ? 'sp-fast' : ''}>{span ? Math.round(bpm * span.factor) : bpm}</b><small> BPM</small>
+            <button onClick={() => bumpBpm(5)} aria-label="Faster">+</button>
+          </span>
+          {playing.value && <span class="muted">Cycle {cycles.value + 1}{span ? ` · +${Math.round((span.factor - 1) * 100)}%` : ''}</span>}
+          <span class="spacer" />
+          <button onClick={markClean} title="This tempo is clean and relaxed: log it (C)">✓ Clean at {bpm}</button>
+        </div>
         <Neck marks={marks} view={{ lo: 0, hi: viewHi }} glide={playing.value}
           focus={sounding.length ? { lo: sounding[0].fret, hi: sounding[0].fret } : frets.length ? { lo: Math.min(...frets), hi: Math.max(...frets) } : null} />
       </div>
