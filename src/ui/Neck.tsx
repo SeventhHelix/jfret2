@@ -12,14 +12,15 @@ const MIN_FRET_W = 40;
 const SINGLE_DOTS = [3, 5, 7, 9, 15, 17, 19, 21];
 const DOUBLE_DOTS = [12, 24];
 
-export function Neck({ marks, region, view, onTap, shapes, focus, glide }: {
+export function Neck({ marks, region, view, onTap, shapes, focus, glide, onFret }: {
   marks: Map<string, NeckMark>;
   region?: Region | null;
   view: { lo: number; hi: number };
-  onTap?: (p: Pos) => void;
+  onTap?: (p: Pos, e: PointerEvent) => void;
   shapes?: Pos[][];
   focus?: { lo: number; hi: number } | null; // frets to keep in view (default: the region)
-  glide?: boolean;                           // scroll smoothly (following playback)
+  glide?: boolean;
+  onFret?: (fret: number) => void;           // a fret number below the neck was clicked                           // scroll smoothly (following playback)
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [avail, setAvail] = useState(0);
@@ -92,7 +93,7 @@ export function Neck({ marks, region, view, onTap, shapes, focus, glide }: {
               return (
                 <div key={`${s}:${f}`} class={`fb-cell${m ? ` ${m.cls}` : ''}${onTap ? '' : ' still'}`}
                   style={{ left: cellX(f), top: s * ROW_H, width: cellW(f), height: ROW_H }}
-                  onPointerDown={onTap ? e => { if (e.button === 0) { e.preventDefault(); onTap({ string: s, fret: f }); } } : undefined}>
+                  onPointerDown={onTap ? e => { if (e.button === 0) { e.preventDefault(); onTap({ string: s, fret: f }, e); } } : undefined}>
                   <span class="fb-dot" style={m?.style}>{m?.label ?? ''}</span>
                 </div>
               );
@@ -101,7 +102,8 @@ export function Neck({ marks, region, view, onTap, shapes, focus, glide }: {
         </div>
         <div class="fb-nums" style={{ width }}>
           {Array.from({ length: n + 1 }, (_, f) => (
-            <span key={f} class={SINGLE_DOTS.includes(f) || DOUBLE_DOTS.includes(f) ? 'mk' : ''} style={{ left: midX(f) }}>{f}</span>
+            <span key={f} class={`${SINGLE_DOTS.includes(f) || DOUBLE_DOTS.includes(f) ? 'mk' : ''}${onFret ? ' nk-num' : ''}`} style={{ left: midX(f) }}
+              onClick={onFret ? () => onFret(f) : undefined}>{f}</span>
           ))}
         </div>
       </div>

@@ -710,7 +710,7 @@ export function deleteOpenNotes() {
 }
 
 // ---- sections: Play (the riff sketcher), Learn (fretboard knowledge drills), Speed (technique trainer) ----
-export type Section = 'play' | 'learn' | 'speed' | 'metro';
+export type Section = 'play' | 'learn' | 'speed' | 'changes' | 'metro';
 const SECTION_KEY = 'jfret:section';
 function loadSection(): Section {
   // Someone's riff link opens the riff. (Your own last riff is always in the URL too, so that one doesn't count.)
@@ -719,7 +719,7 @@ function loadSection(): Section {
   try { own = localStorage.getItem(LS_KEY); } catch { /* storage unavailable */ }
   if (p && p !== own) return 'play';
   const v = readJson(SECTION_KEY);
-  return v === 'learn' || v === 'speed' || v === 'metro' ? v : 'play';
+  return v === 'learn' || v === 'speed' || v === 'changes' || v === 'metro' ? v : 'play';
 }
 export const section = signal<Section>(loadSection());
 export function setSection(s: Section) {

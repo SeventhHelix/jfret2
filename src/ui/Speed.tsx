@@ -17,11 +17,14 @@ import {
   Faster, phraseOf, toSong,
 } from '../speed/drill';
 import { fretHue } from './colors';
+import { RiffEditor, createRiff, cursor, editorMarks, neckEntry, removeRiff, riffs, saveRiff } from './RiffEditor';
+import { riffPhrase } from '../speed/custom';
 import { isPhone, loop, loopOn, openInPlay, selection, song } from '../state/store';
 
 // ---- settings (saved in this browser) ----
 type Cfg = {
-  source: 'pattern' | 'riff';
+  source: 'pattern' | 'riff' | 'custom';
+  customId: string | null; // which of your riffs (source 'custom')
   pattern: PatternCfg;
   sub: number;
   drill: DrillCfg;
@@ -31,6 +34,7 @@ type Cfg = {
 };
 const DEFAULT_CFG: Cfg = {
   source: 'pattern',
+  customId: null,
   pattern: { id: 'scale', key: 9, scale: 'minor', quality: 'min', seq: 'straight', dir: 'updown', pos: 5 },
   sub: 12, drill: DEFAULT_DRILL, bpm: 90, ladder: DEFAULT_LADDER, click: true,
 };
@@ -92,7 +96,13 @@ function stop() {
 }
 
 /** The phrase to practise: a generated pattern, or the looped / selected / first bars of the Play riff. */
+const customRiff = (c: Cfg) => riffs.value.find(r => r.id === c.customId) ?? null;
+
 function currentPhrase(c: Cfg): { ph: Phrase; title: string; tuning: Song['tuning'] } {
+  if (c.source === 'custom') {
+    const r = customRiff(c);
+    return { ph: r ? riffPhrase(r) : { notes: [], len: 0 }, title: r?.name ?? 'My riff', tuning: 'std' };
+  }
   if (c.source === 'riff') {
     const s = song.value;
     const sel = s.notes.filter(n => selection.value.has(n.id));
@@ -129,7 +139,7 @@ function start() {
 }
 
 /** A tempo you can play cleanly, per exercise (pattern + note value + drill doesn't matter: the notes do). */
-const logKey = (c: Cfg) => c.source === 'riff'
+const logKey = (c: Cfg) => c.source === 'custom' ? `custom:${c.customId}` : c.source === 'riff'
   ? `riff:${song.value.title}`
   : `${c.pattern.id}|${c.pattern.key}|${c.pattern.scale}|${c.pattern.quality}|${c.pattern.seq}|${c.pattern.dir}|${c.sub}`;
 
@@ -175,7 +185,10 @@ export function Speed() {
   const entry = log.value[logKey(c)];
   const restart = () => { if (playing.value) start(); };
   // Restart with the new exercise when a setting changes mid-play.
-  const sig = JSON.stringify([c.source, c.pattern, c.sub, c.drill, c.click]);
+  const custom = c.source === 'custom' ? customRiff(c) : null;
+  const sig = JSON.stringify([c.source, c.pattern, c.sub, c.drill, c.click, custom?.steps]);
+  // "Write" with no riff picked (first time, or it was deleted): pick or start one.
+  useEffect(() => { if (c.source === 'custom' && !custom) setCfg({ customId: riffs.value[0]?.id ?? createRiff().id }); }, [c.source, !!custom]);
   const first = useRef(true);
   useEffect(() => { if (first.current) { first.current = false; return; } restart(); }, [sig]);
   const subName = SUBDIVISIONS.find(s => s.ticks === c.sub)?.short ?? '';
@@ -188,6 +201,7 @@ export function Speed() {
   for (const n of sounding) marks.set(posKey(n), { label: String(n.fret), cls: 'hot' });
   const frets = cyc.notes.map(n => n.fret);
   const viewHi = Math.min(24, Math.max(15, ...frets.map(f => f + 2)));
+  const editing = !!custom && !playing.value; // stopped: the neck is for writing; playing: it shows the playback
 
   return (
     <div class="speed-sec">
@@ -212,10 +226,27 @@ export function Speed() {
         <div class="row">
           <span class="seg small" role="group">
             <button class={c.source === 'pattern' ? 'on' : ''} onClick={() => setCfg({ source: 'pattern' })}>Pattern</button>
+            <button class={c.source === 'custom' ? 'on' : ''} title="Riffs you write here: type them as tab or click them on the neck"
+              onClick={() => setCfg({ source: 'custom', customId: customRiff(c)?.id ?? riffs.value[0]?.id ?? createRiff().id })}>Write</button>
             <button class={c.source === 'riff' ? 'on' : ''} title="The looped bars, the selection, or the first 4 bars of the riff in Play"
-              onClick={() => setCfg({ source: 'riff', bpm: c.source === 'riff' ? c.bpm : song.value.bpm })}>My riff</button>
+              onClick={() => setCfg({ source: 'riff', bpm: c.source === 'riff' ? c.bpm : song.value.bpm })}>From Play</button>
           </span>
-          {c.source === 'pattern' ? (
+          {c.source === 'custom' ? (
+            <>
+              <select value={c.customId ?? ''} title="Your riffs (saved in this browser)" onChange={e => { setCfg({ customId: e.currentTarget.value }); cursor.value = { col: 0, string: 5 }; e.currentTarget.blur(); }}>
+                {[...riffs.value].sort((a, b) => b.updated - a.updated).map(r => <option key={r.id} value={r.id}>{r.name || 'Untitled'}</option>)}
+              </select>
+              {custom && <input class="rf-name" value={custom.name} maxLength={40} aria-label="Riff name"
+                onChange={e => saveRiff({ ...custom, name: e.currentTarget.value.trim() || 'Untitled', updated: Date.now() })} />}
+              <button class="mini" onClick={() => setCfg({ customId: createRiff().id })} title="Start a new riff">＋ New</button>
+              {custom && <button class="mini" title="Delete this riff" onClick={() => {
+                if (!confirm(`Delete “${custom.name}”?`)) return;
+                removeRiff(custom.id);
+                setCfg({ customId: riffs.value[0]?.id ?? createRiff().id });
+              }}>Delete</button>}
+              <span class="muted">Saved as you go</span>
+            </>
+          ) : c.source === 'pattern' ? (
             <>
               <select value={p.id} onChange={e => { setPattern({ id: e.currentTarget.value as PatternCfg['id'] }); e.currentTarget.blur(); }}>
                 {PATTERNS.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
@@ -308,7 +339,9 @@ export function Speed() {
           <span class="spacer" />
           <button onClick={markClean} title="This tempo is clean and relaxed: log it (C)">✓ Clean at {bpm}</button>
         </div>
-        <Neck marks={marks} view={{ lo: 0, hi: viewHi }} glide={playing.value}
+        {custom && <RiffEditor riff={custom} />}
+        <Neck marks={editing ? editorMarks(custom!, viewHi) : marks} view={{ lo: 0, hi: viewHi }} glide={playing.value}
+          onTap={editing ? (pos, e) => neckEntry(custom!, pos, e.shiftKey) : undefined}
           focus={sounding.length ? { lo: sounding[0].fret, hi: sounding[0].fret } : frets.length ? { lo: Math.min(...frets), hi: Math.max(...frets) } : null} />
       </div>
 

@@ -13,6 +13,7 @@ import { editMode, errorMsg, importFile, layout, section } from '../state/store'
 import { Learn } from './Learn';
 import { Speed } from './Speed';
 import { Metro } from './Metro';
+import { Changes } from './Changes';
 
 /** Dropping a Guitar Pro file anywhere on the page opens the import dialog. */
 function useFileDrop() {
@@ -38,6 +39,7 @@ export function App() {
   const l = layout.value;
   if (section.value === 'learn') return <div class="app"><Learn /></div>;
   if (section.value === 'speed') return <div class="app"><Speed /></div>;
+  if (section.value === 'changes') return <div class="app"><Changes /></div>;
   if (section.value === 'metro') return <div class="app"><Metro /></div>;
   // Panels in the order and visibility chosen in the View menu. The editor only exists in Edit mode.
   const panel = (id: PanelId) =>

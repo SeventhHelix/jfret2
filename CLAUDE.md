@@ -74,6 +74,8 @@ src/speed/patterns.ts  Speed patterns -> spots: 3nps/pentatonic runs with sequen
                        string-skip arpeggio, 3/5-string sweeps, chromatic 1-2-3-4
 src/speed/drill.ts     Speed drills on a phrase: steady, bursts (same notes, reps marked N% faster via Phrase.tempo),
                        chunks + rests (overlap by one), dotted rhythm variations; tempo ladder; toSong() for the normal Player
+src/speed/custom.ts    Speed: your own riffs (steps of one note value, a fret per string), edit ops, riffPhrase
+src/model/chords.ts    Roman-numeral progressions (I IV V, ii7 V7 Imaj7, i bVI bVII, iiø7...) -> chords; presets; guide tones
 src/audio/metronome.ts Metronome section engine (lookahead clicks, per-beat accent/beat/off, subdivision, levels), tapTempo
 src/ui/*.tsx           App, Transport (sticky header), TabView (SVG tab), Fretboard (neck + overlays),
                        TabRoll (timeline editor), Toolbar (note length + rhythm tools), Settings (the ⚙ menu), MyTabs (☰ saved songs), NoteEditor (fix a note), ImportDialog (GP track +
@@ -87,6 +89,8 @@ UI components read signals and call store actions; they never mutate the song di
 
 Four sections (`section` signal in the store, localStorage `jfret:section`; `ui/SectionNav.tsx`, only the active one shows
 its name): **Play** (the riff sketcher, everything below), **Learn** (`ui/Learn.tsx`), **Speed** (`ui/Speed.tsx`) and
+**Changes** (`ui/Changes.tsx`, `jfret:changes`: a progression in a key, a movable box on the neck, current chord tones +
+next chord's ringed, modes arpeggio/triads/guide tones/scale, a backing Player strumming voicings from inside the box) and
 **Metronome** (`ui/Metro.tsx`, settings `jfret:metro`; click volume and sound are the shared `sound` settings). A link to someone else's riff
 always opens Play. On phones Play's header has no room, so the switch is at the top of the ☰ menu; Learn/Speed use a small
 native picker. The global keyboard handler only runs in Play; Learn and Speed register their own keys.
@@ -95,6 +99,9 @@ native picker. The global keyboard handler only runs in Play; Learn and Speed re
 - `Player.tempo` (TempoSpan[]) plays parts of a song faster: Speed's burst reps. `playClick` takes a per-click level.
 - Speed has its own `Player` instance; the cycle loops and a wrap in `onTick` counts a cycle, where the ladder swaps the
   song (same notes, new bpm) via `setSong` so tempo changes without a gap. Settings `jfret:speed`, clean tempos `jfret:speed-log`.
+  Speed's "Write" source: `ui/RiffEditor.tsx`, riffs in `jfret:speed-riffs` (saved on every edit). A tab grid (click a
+  cell, type frets, arrows, -/+ length, Shift+Del removes a step) and the neck (stopped: clicks fill the cursor step and
+  advance; Shift stacks onto the step just entered) edit the same riff; a key/scale or your own notes show as a guide.
   "Open in Play" loads the exercise as a new unsaved riff (`openInPlay`, undoable).
 
 ## Invariants and gotchas
