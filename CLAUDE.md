@@ -75,7 +75,9 @@ src/speed/patterns.ts  Speed patterns -> spots: 3nps/pentatonic runs with sequen
 src/speed/drill.ts     Speed drills on a phrase: steady, bursts (same notes, reps marked N% faster via Phrase.tempo),
                        chunks + rests (overlap by one), dotted rhythm variations; tempo ladder; toSong() for the normal Player
 src/speed/custom.ts    Speed: your own riffs (steps of one note value, a fret per string), edit ops, riffPhrase
-src/model/chords.ts    Roman-numeral progressions (I IV V, ii7 V7 Imaj7, i bVI bVII, iiø7...) -> chords; presets; guide tones
+src/model/chords.ts    progressions: Roman numerals (I IV V, ii7 V7 Imaj7, V7/ii, sus/6/9) or chord symbols (C E G, Cmaj7 A7)
+                       -> chords (symbols get their Roman analysis); changeMap (each tone kept or moved to the nearest next
+                       tone), newNotes, chordScale (chord tones / tensions / avoid notes per chord), guide tones
 src/audio/metronome.ts Metronome section engine (lookahead clicks, per-beat accent/beat/off, subdivision, levels), tapTempo
 src/ui/*.tsx           App, Transport (sticky header), TabView (SVG tab), Fretboard (neck + overlays),
                        TabRoll (timeline editor), Toolbar (note length + rhythm tools), Settings (the ⚙ menu), MyTabs (☰ saved songs), NoteEditor (fix a note), ImportDialog (GP track +
@@ -90,7 +92,8 @@ UI components read signals and call store actions; they never mutate the song di
 Four sections (`section` signal in the store, localStorage `jfret:section`; `ui/SectionNav.tsx`, only the active one shows
 its name): **Play** (the riff sketcher, everything below), **Learn** (`ui/Learn.tsx`), **Speed** (`ui/Speed.tsx`) and
 **Changes** (`ui/Changes.tsx`, `jfret:changes`: a progression in a key, a movable box on the neck, current chord tones +
-next chord's ringed, modes arpeggio/triads/guide tones/scale, a backing Player strumming voicings from inside the box) and
+next chord's ringed + handoff arrows (`Neck` `links`), a change readout line, modes arpeggio/triads/guide tones/sweet
+notes/scale, options in its own ⚙, a backing Player strumming voice-led voicings from inside the box) and
 **Metronome** (`ui/Metro.tsx`, settings `jfret:metro`; click volume and sound are the shared `sound` settings). A link to someone else's riff
 always opens Play. On phones Play's header has no room, so the switch is at the top of the ☰ menu; Learn/Speed use a small
 native picker. The global keyboard handler only runs in Play; Learn and Speed register their own keys.
@@ -118,6 +121,11 @@ native picker. The global keyboard handler only runs in Play; Learn and Speed re
 - Fret typing (Guitar Pro style): clicking a fret number in the tab selects that note (Shift adds); digits then set the
   fret (`typeFret`: two digits within a second = one two-digit fret, one undo step). Works in Practice too. So 1-6 only
   pick note lengths with nothing selected. One selected note doesn't narrow the fretboard focus or the L loop (2+ do).
+- Marked sections: `TabEntry.marks` (name + tick range) on the My tabs entry; `ui/SectionsBar.tsx` under Play's header
+  (click = loop it, "＋ Mark this loop" saves the song to My tabs if needed). GP imports turn the file's own section names
+  inside the imported range into marks (`sectionMarks`). Speed's "Songs" source picks any My tabs song and one of its marks.
+- Chord highlight: Play's guide (`guide.chord`) and Speed's riff guide (`CustomRiff.chord`) can light one chord of the
+  scale (`scaleChords`: diatonic triads/7ths of 7-note scales): its tones `.chordtone`, the rest of the scale `.faint`.
 - Scale guide: `guide.scale` 'auto' and `guide.root` null use `detectedKeys` (from the loop when one is on, else the whole
   riff); the info line offers the next two guesses. `jfret:guide` v2 (older saves reset to Auto).
 - Keyboard shortcuts live in `ui/keyboard.ts` (Space, L, 1-6, ., T, B/R/V/S/H/M/N/P/X techniques, Enter = note editor on the selection, Esc, Ctrl+Z/Y/C/X/V/D, Alt+arrows, Backspace). Global keys are ignored while the import dialog or note editor is open. Keep the hint line in `App.tsx` in sync.

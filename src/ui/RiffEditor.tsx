@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import type { JSX } from 'preact';
 import type { NeckMark } from './Neck';
 import { CustomRiff, GuideScale, deleteStep, emptyStep, insertStep, newRiff, readRiffs, setDur, setFret, setStepNotes, stepStart } from '../speed/custom';
-import { PITCH_NAMES, SCALES, SCALE_NAMES, ScaleId, intervalName, pc } from '../model/theory';
+import { PITCH_NAMES, SCALES, SCALE_NAMES, ScaleId, intervalName, pc, romanOf, scaleChords } from '../model/theory';
 import { MAX_FRET } from '../model/song';
 import { Pos, STD, keyName } from '../learn/fretmap';
 import { getCtx, playPluck } from '../audio/synth';
@@ -52,18 +52,28 @@ export function guidePcs(r: CustomRiff): Set<number> {
   return r.scale === 'custom' ? new Set(r.custom) : new Set(SCALES[r.scale].map(s => pc(r.key + s)));
 }
 
+/** The highlighted chord's pitch classes and its root, if one is picked. */
+export function guideChord(r: CustomRiff): { pcs: Set<number>; root: number } | null {
+  if (!r.chord || r.scale === 'custom') return null;
+  const ch = scaleChords(SCALES[r.scale], r.chord.seventh)[r.chord.deg] ?? scaleChords(SCALES[r.scale], r.chord.seventh)[0];
+  return { pcs: new Set(ch.offsets.map(o => pc(r.key + o))), root: pc(r.key + ch.offsets[0]) };
+}
+
 /** The neck while editing: the guide scale faintly, the riff's spots, the current step bright. */
 export function editorMarks(r: CustomRiff, viewHi: number): Map<string, NeckMark> {
   const m = new Map<string, NeckMark>();
   const pcs = guidePcs(r);
+  const chord = guideChord(r);
   for (let s = 0; s < 6; s++) {
     for (let f = 0; f <= viewHi; f++) {
       const p = pc(STD[s] + f);
       if (!pcs.has(p)) continue;
+      const inChord = !!chord?.pcs.has(p);
+      const ref = chord ? chord.root : r.key; // with a chord lit, label everything from the chord's root
       m.set(`${s}:${f}`, {
-        label: r.scale === 'custom' ? PITCH_NAMES[p] : intervalName(p, r.key),
-        cls: `scale${p === pc(r.key) && r.scale !== 'custom' ? ' root' : ''}`,
-        style: { '--ic': intervalHue(p - r.key) } as JSX.CSSProperties,
+        label: r.scale === 'custom' ? PITCH_NAMES[p] : intervalName(p, ref),
+        cls: `scale${p === ref && r.scale !== 'custom' ? ' root' : ''}${chord ? (inChord ? ' chordtone' : ' faint') : ''}`,
+        style: { '--ic': intervalHue(p - ref) } as JSX.CSSProperties,
       });
     }
   }
@@ -172,6 +182,17 @@ export function RiffEditor({ riff: r }: { riff: CustomRiff }) {
           {(Object.keys(SCALE_NAMES) as ScaleId[]).filter(s => s !== 'song').map(s => <option key={s} value={s}>{SCALE_NAMES[s]}</option>)}
           <option value="custom">My notes</option>
         </select>
+        {r.scale !== 'custom' && (() => {
+          const opts = scaleChords(SCALES[r.scale], !!r.chord?.seventh);
+          return (<>
+            <select value={r.chord ? String(r.chord.deg) : ''} title="Light up one chord's notes: its tones bright, the rest of the scale faint"
+              onChange={e => { const v = e.currentTarget.value; saveRiff({ ...r, chord: v === '' ? null : { deg: Number(v), seventh: !!r.chord?.seventh }, updated: Date.now() }); e.currentTarget.blur(); }}>
+              <option value="">Whole scale</option>
+              {opts.map(o => <option key={o.deg} value={String(o.deg)}>{romanOf(o.deg, o.quality)} chord ({keyName(pc(r.key + o.offsets[0]))}{o.quality})</option>)}
+            </select>
+            {r.chord && <label class="muted"><input type="checkbox" checked={r.chord.seventh} onChange={() => saveRiff({ ...r, chord: { ...r.chord!, seventh: !r.chord!.seventh }, updated: Date.now() })} /> 7th</label>}
+          </>);
+        })()}
       </div>
       <div class="rf-notes" title="Click notes to choose your own set (switches the guide to My notes)">
         {PITCH_NAMES.map((n, p) => (

@@ -154,3 +154,20 @@ export function extractSection(score: GpScore, trackIndex: number, first: number
   const title = `${score.title.trim() || 'Imported'} · ${sec ? sec.name : first === last ? `bar ${first + 1}` : `bars ${first + 1}-${last + 1}`}`;
   return { song: { v: 1, title, bpm, timeSig, tuning: fit.tuning, notes: normalizeNotes(notes) }, warnings, noteCount: notes.length };
 }
+
+/**
+ * The file's own section names inside an imported range of bars, as ticks from the range start: they become the
+ * song's marked sections, so a whole-solo import can still jump between its parts. Nothing when there's just one.
+ */
+export function sectionMarks(score: GpScore, first: number, last: number): { name: string; start: number; end: number }[] {
+  const { bars } = score;
+  const endOf = (i: number) => (i + 1 < bars.length ? bars[i + 1].start : bars[i].start + (bars[i].num * 96) / bars[i].den);
+  const base = bars[first].start;
+  const inside = sections(score).filter(s => s.last >= first && s.first <= last);
+  if (inside.length < 2) return [];
+  return inside.map(s => ({
+    name: s.name,
+    start: Math.round(bars[Math.max(s.first, first)].start - base),
+    end: Math.round(endOf(Math.min(s.last, last)) - base),
+  }));
+}

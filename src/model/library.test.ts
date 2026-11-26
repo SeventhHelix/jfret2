@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addTab, byRecent, findTab, readLibrary, removeTab, timeAgo, updateTab } from './library';
+import { addTab, byRecent, findTab, readLibrary, removeTab, setMarks, timeAgo, updateTab } from './library';
 
 describe('My tabs library', () => {
   const base = () => {
@@ -42,5 +42,16 @@ describe('My tabs library', () => {
     expect(timeAgo(0, 5 * 60_000)).toBe('5 min ago');
     expect(timeAgo(0, 3 * 3_600_000)).toBe('3 h ago');
     expect(timeAgo(0, 86_400_000)).toBe('yesterday');
+  });
+});
+
+describe('sections (marks)', () => {
+  it('keep in song order and survive a reload', () => {
+    let { lib, id } = addTab([], { title: 'S', payload: 'p', practice: '' }, 1);
+    lib = setMarks(lib, id, [{ id: 'b', name: 'Sweeps', start: 384, end: 768 }, { id: 'a', name: 'Intro', start: 0, end: 384 }], 2);
+    expect(lib[0].marks!.map(m => m.name)).toEqual(['Intro', 'Sweeps']);
+    const back = readLibrary(JSON.parse(JSON.stringify(lib)));
+    expect(back[0].marks).toEqual(lib[0].marks);
+    expect(readLibrary([{ ...lib[0], marks: [{ id: 'x', name: 'bad', start: 5, end: 5 }] }])[0].marks).toEqual([]);
   });
 });

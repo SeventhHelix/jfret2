@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { MAX_FRET, Note, STRINGS, TUNINGS, barTicks, beatTicks, noteName, notesInRange, pitchOf } from '../model/song';
 import {
-  cursor, cursorIds, detectedKeys, loopOn, editMode, fretMode, guide, guideRoot, guideScale, guideScaleId, hotIds, insertNote, nextIds, playhead, playing, previewNote,
+  cursor, cursorIds, detectedKeys, guideChord, loopOn, editMode, fretMode, guide, guideRoot, guideScale, guideScaleId, hotIds, insertNote, nextIds, playhead, playing, previewNote,
   setGuide, softIds, softSource,
   layout, openNoteEditor, song, view,
 } from '../state/store';
 import { intervalHue, noteHue } from './colors';
 import { focusRange, fretWidth } from '../model/layout';
 import { FlowPt, groupLinks } from '../model/flow';
-import { PITCH_NAMES, SCALE_NAMES, ScaleId, intervalName, pc } from '../model/theory';
+import { PITCH_NAMES, SCALES, SCALE_NAMES, ScaleId, intervalName, pc, romanOf, scaleChords } from '../model/theory';
 import { keyName } from '../learn/fretmap';
 
 const ROW_H = 52;
@@ -69,6 +69,8 @@ export function Fretboard() {
   const g = guide.value;
   const keys = detectedKeys.value;
   const root = guideRoot.value;
+  const gch = g.on ? guideChord.value : null;
+  const ref = gch ? gch.root : root; // with a chord lit, the scale's labels count from the chord's root
   const scale = g.on ? guideScale.value : null;
   const strictScale = !!scale && guideScaleId.value !== 'song'; // only a chosen scale can make a riff note "wrong"
 
@@ -293,6 +295,16 @@ export function Fretboard() {
                   {(Object.keys(SCALE_NAMES) as ScaleId[]).map(id => <option key={id} value={id}>{SCALE_NAMES[id]}</option>)}
                 </select>
               </label>
+              {guideScaleId.value !== 'song' && (
+                <select value={g.chord ? String(g.chord.deg) : ''} title="Light up one chord of the scale: its notes bright, the rest faint"
+                  onChange={e => { const v = e.currentTarget.value; setGuide({ chord: v === '' ? null : v === '7' ? { deg: g.chord?.deg ?? 0, seventh: !g.chord?.seventh } : { deg: Number(v), seventh: !!g.chord?.seventh } }); e.currentTarget.blur(); }}>
+                  <option value="">All notes</option>
+                  {scaleChords(SCALES[guideScaleId.value], !!g.chord?.seventh).map(o => (
+                    <option key={o.deg} value={String(o.deg)}>{romanOf(o.deg, o.quality)} ({keyName(pc(root + o.offsets[0]))}{o.quality})</option>
+                  ))}
+                  {g.chord && <option value="7">{g.chord.seventh ? 'Triads only' : 'With 7ths'}</option>}
+                </select>
+              )}
               {g.root === null && g.scale === 'auto' && keys.length > 1 && (
                 <span class="muted key-alts" title={`Worked out from ${loopOn.value ? 'the looped part' : 'the whole riff'}. Click another guess to use it.`}>
                   {keys[0].fit < 1 && <>{Math.round((1 - keys[0].fit) * 100)}% outside · </>}or{' '}
@@ -356,10 +368,10 @@ export function Fretboard() {
                 const cls = (c
                   ? `${c.hot ? ' hot' : c.soft ? ' soft' : c.ghost ? ' ghost' : ''}${c.next && !c.hot ? ' next' : ''}` +
                     `${c.atCursor ? ' at-cursor' : ''}${opts.colour ? ' tint' : ''}${strictScale && !inScale ? ' out' : ''}`
-                  : `${inScale ? ' scale' : ''}`) + `${scale && pcCell === root ? ' root' : ''}`;
+                  : `${inScale ? ' scale' : ''}${inScale && gch ? (gch.pcs.has(pcCell) ? ' chordtone' : ' faint') : ''}`) + `${scale && pcCell === ref ? ' root' : ''}`;
                 // Riff dots follow the label mode; empty scale tones show their interval (or note name).
                 const riffLabel = c ? labelOf(str, f, c) : '';
-                const emptyLabel = scale && g.labels !== 'note' ? intervalName(pcCell, root) : PITCH_NAMES[pcCell];
+                const emptyLabel = scale && g.labels !== 'note' ? intervalName(pcCell, ref) : PITCH_NAMES[pcCell];
                 return (
                   <div key={`${str}:${f}`} class={`fb-cell${cls}`}
                     style={{ left: cellX(f), top: str * ROW_H, width: cellW(f), height: ROW_H }}
@@ -374,7 +386,7 @@ export function Fretboard() {
                       e.preventDefault();
                       openNoteEditor(ids, e.clientX, e.clientY);
                     }}>
-                    <span class="fb-dot" style={c ? dotStyle(c, f) : inScale ? ({ '--ic': intervalHue(pcCell - root) } as JSX.CSSProperties) : undefined}>
+                    <span class="fb-dot" style={c ? dotStyle(c, f) : inScale ? ({ '--ic': intervalHue(pcCell - ref) } as JSX.CSSProperties) : undefined}>
                       {c ? riffLabel : emptyLabel}
                     </span>
                   </div>

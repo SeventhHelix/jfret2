@@ -19,12 +19,16 @@ import {
 import { fretHue } from './colors';
 import { RiffEditor, createRiff, cursor, editorMarks, neckEntry, removeRiff, riffs, saveRiff } from './RiffEditor';
 import { riffPhrase } from '../speed/custom';
-import { isPhone, loop, loopOn, openInPlay, selection, song } from '../state/store';
+import { Mark, byRecent } from '../model/library';
+import { decodeSong } from '../codec/codec';
+import { currentTabId, library, songMarks, isPhone, loop, loopOn, openInPlay, selection, song } from '../state/store';
 
 // ---- settings (saved in this browser) ----
 type Cfg = {
   source: 'pattern' | 'riff' | 'custom';
   customId: string | null; // which of your riffs (source 'custom')
+  songId: string | null;   // source 'riff': a My tabs song (null = the song open in Play)
+  part: string;            // ...and which part: 'auto' (loop / selection / first bars), 'all', or a marked section's id
   pattern: PatternCfg;
   sub: number;
   drill: DrillCfg;
@@ -35,6 +39,8 @@ type Cfg = {
 const DEFAULT_CFG: Cfg = {
   source: 'pattern',
   customId: null,
+  songId: null,
+  part: 'auto',
   pattern: { id: 'scale', key: 9, scale: 'minor', quality: 'min', seq: 'straight', dir: 'updown', pos: 5 },
   sub: 12, drill: DEFAULT_DRILL, bpm: 90, ladder: DEFAULT_LADDER, click: true,
 };
@@ -96,6 +102,16 @@ function stop() {
 }
 
 /** The phrase to practise: a generated pattern, or the looped / selected / first bars of the Play riff. */
+const decoded = new Map<string, Song>();
+/** The song Speed practises from: one from My tabs, or the one open in Play. */
+function songSource(c: Cfg): { song: Song; marks: Mark[]; open: boolean } {
+  const e = c.songId ? library.value.find(x => x.id === c.songId) : null;
+  if (!e || e.id === currentTabId.value) return { song: song.value, marks: e?.marks ?? songMarks.value, open: true };
+  let s = decoded.get(e.payload);
+  if (!s) { try { s = decodeSong(e.payload); } catch { s = song.value; } decoded.set(e.payload, s); }
+  return { song: s, marks: e.marks ?? [], open: false };
+}
+
 const customRiff = (c: Cfg) => riffs.value.find(r => r.id === c.customId) ?? null;
 
 function currentPhrase(c: Cfg): { ph: Phrase; title: string; tuning: Song['tuning'] } {
@@ -104,15 +120,21 @@ function currentPhrase(c: Cfg): { ph: Phrase; title: string; tuning: Song['tunin
     return { ph: r ? riffPhrase(r) : { notes: [], len: 0 }, title: r?.name ?? 'My riff', tuning: 'std' };
   }
   if (c.source === 'riff') {
-    const s = song.value;
-    const sel = s.notes.filter(n => selection.value.has(n.id));
-    const lp = loopOn.value ? loop.value : null;
+    const src = songSource(c);
+    const s = src.song;
+    const end = s.notes.reduce((m, n) => Math.max(m, n.start + n.dur), 0);
+    const mark = src.marks.find(m => m.id === c.part);
+    const sel = src.open ? s.notes.filter(n => selection.value.has(n.id)) : [];
+    const lp = src.open && loopOn.value ? loop.value : null;
     let a: number, b: number;
-    if (lp) { a = lp.start; b = lp.end; }
-    else if (sel.length) { a = Math.min(...sel.map(n => n.start)); b = Math.max(...sel.map(n => n.start + n.dur)); }
-    else { a = 0; b = Math.min(4 * 96, s.notes.reduce((m, n) => Math.max(m, n.start + n.dur), 0)); }
+    if (mark) { a = mark.start; b = mark.end; }
+    else if (c.part === 'all') { a = 0; b = end; }
+    else if (lp) { a = lp.start; b = lp.end; }
+    else if (sel.length > 1) { a = Math.min(...sel.map(n => n.start)); b = Math.max(...sel.map(n => n.start + n.dur)); }
+    else if (src.marks.length) { a = src.marks[0].start; b = src.marks[0].end; }
+    else { a = 0; b = Math.min(4 * 96, end); }
     const notes = s.notes.filter(n => n.start >= a && n.start < b).map(n => ({ string: n.string, fret: n.fret, tech: n.tech, start: n.start - a, dur: Math.min(n.dur, b - n.start) }));
-    return { ph: { notes, len: Math.ceil((b - a) / PPQ) * PPQ }, title: s.title, tuning: s.tuning };
+    return { ph: { notes, len: Math.ceil((b - a) / PPQ) * PPQ }, title: mark ? `${s.title}: ${mark.name}` : s.title, tuning: s.tuning };
   }
   const p = c.pattern;
   const info = PATTERNS.find(x => x.id === p.id)!;
@@ -140,7 +162,7 @@ function start() {
 
 /** A tempo you can play cleanly, per exercise (pattern + note value + drill doesn't matter: the notes do). */
 const logKey = (c: Cfg) => c.source === 'custom' ? `custom:${c.customId}` : c.source === 'riff'
-  ? `riff:${song.value.title}`
+  ? `riff:${songSource(c).song.title}:${c.part}`
   : `${c.pattern.id}|${c.pattern.key}|${c.pattern.scale}|${c.pattern.quality}|${c.pattern.seq}|${c.pattern.dir}|${c.sub}`;
 
 function markClean() {
@@ -186,7 +208,8 @@ export function Speed() {
   const restart = () => { if (playing.value) start(); };
   // Restart with the new exercise when a setting changes mid-play.
   const custom = c.source === 'custom' ? customRiff(c) : null;
-  const sig = JSON.stringify([c.source, c.pattern, c.sub, c.drill, c.click, custom?.steps]);
+  const srcInfo = songSource(c);
+  const sig = JSON.stringify([c.source, c.pattern, c.sub, c.drill, c.click, custom?.steps, c.songId, c.part]);
   // "Write" with no riff picked (first time, or it was deleted): pick or start one.
   useEffect(() => { if (c.source === 'custom' && !custom) setCfg({ customId: riffs.value[0]?.id ?? createRiff().id }); }, [c.source, !!custom]);
   const first = useRef(true);
@@ -229,7 +252,7 @@ export function Speed() {
             <button class={c.source === 'custom' ? 'on' : ''} title="Riffs you write here: type them as tab or click them on the neck"
               onClick={() => setCfg({ source: 'custom', customId: customRiff(c)?.id ?? riffs.value[0]?.id ?? createRiff().id })}>Write</button>
             <button class={c.source === 'riff' ? 'on' : ''} title="The looped bars, the selection, or the first 4 bars of the riff in Play"
-              onClick={() => setCfg({ source: 'riff', bpm: c.source === 'riff' ? c.bpm : song.value.bpm })}>From Play</button>
+              onClick={() => setCfg({ source: 'riff', bpm: c.source === 'riff' ? c.bpm : songSource(c).song.bpm })}>Songs</button>
           </span>
           {c.source === 'custom' ? (
             <>
@@ -283,7 +306,24 @@ export function Speed() {
               </select>
             </>
           ) : (
-            <span class="muted">{cur.ph.notes.length ? `${cur.title}: ${loopOn.value && loop.value ? 'the looped part' : selection.value.size ? 'the selected notes' : 'the first bars'} (set a loop in Play to choose)` : 'Your riff in Play is empty.'}</span>
+            <>
+              <select value={c.songId ?? ''} title="Song (from My tabs)" onChange={e => {
+                const id = e.currentTarget.value || null;
+                const next = { ...c, songId: id, part: 'auto' };
+                setCfg({ songId: id, part: 'auto', bpm: songSource(next).song.bpm });
+                e.currentTarget.blur();
+              }}>
+                <option value="">Open in Play: {song.value.title || 'Untitled'}</option>
+                {byRecent(library.value).filter(e => e.id !== currentTabId.value).map(e => <option key={e.id} value={e.id}>{e.title || 'Untitled'}</option>)}
+              </select>
+              <select value={c.part} title="Which part of the song" onChange={e => { setCfg({ part: e.currentTarget.value }); e.currentTarget.blur(); }}>
+                <option value="auto">{srcInfo.open && loopOn.value && loop.value ? 'The loop in Play' : srcInfo.marks.length ? `${srcInfo.marks[0].name} (first section)` : 'First 4 bars'}</option>
+                {srcInfo.marks.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                <option value="all">Whole song</option>
+              </select>
+              {!cur.ph.notes.length && <span class="muted">That part has no notes.</span>}
+              {!srcInfo.marks.length && <span class="muted">Mark sections in Play to pick them here</span>}
+            </>
           )}
         </div>
         {c.source === 'pattern' && <div class="muted sp-desc">{info.desc}</div>}

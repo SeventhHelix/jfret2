@@ -1,11 +1,11 @@
 import { batch, computed, effect, signal } from '@preact/signals';
 import { MAX_FRET, Song, barTicks, beatTicks, emptySong, notesInRange, pitchOf, songEndTick, soundingAt } from '../model/song';
-import { SCALES, ScaleId, detectKeys, guessRoot, scaleForRoot, scalePitchClasses, songPitchClasses } from '../model/theory';
+import { SCALES, ScaleId, detectKeys, guessRoot, scaleChords, scaleForRoot, scalePitchClasses, songPitchClasses } from '../model/theory';
 import { addNote, copyNotes, deleteNotes, duplicateNotes, NewNote, pasteNotes, setDuration, setNotes, shiftFrets, shiftFrom } from '../model/ops';
 import { History } from '../model/history';
 import type { FlowGrouping } from '../model/flow';
 import { Layout, PanelId, readLayout } from '../model/layout';
-import { TabEntry, addTab, findTab, readLibrary, removeTab, updateTab } from '../model/library';
+import { Mark, TabEntry, addTab, findTab, newTabId, readLibrary, removeTab, setMarks, updateTab } from '../model/library';
 import { decodeSong, encodeSong } from '../codec/codec';
 import { Practice, formatPractice, pageTitle, parsePractice } from '../codec/practice';
 import { Player } from '../audio/player';
@@ -321,11 +321,14 @@ export function newSong() {
 export const importFile = signal<File | null>(null);
 
 /** Replace the riff with an imported section (one undo step). */
-export function importSong(next: Song) {
+export function importSong(next: Song, marks: { name: string; start: number; end: number }[] = []) {
   importFile.value = null;
   replaceSong(next);
   speed.value = 1; // a new song starts at full speed, not the last one's practice speed
   saveToMyTabs(); // imported songs go straight into My tabs
+  if (marks.length && currentTabId.value) { // the file's own section names, ready to jump between
+    library.value = setMarks(library.value, currentTabId.value, marks.map(m => ({ ...m, id: newTabId() })), Date.now());
+  }
 }
 
 // ---- derived view state for highlighting ----
@@ -634,7 +637,7 @@ export function selectBar(b: number) {
 export type LabelMode = 'fret' | 'note' | 'interval';
 /** 'auto' = the scale that fits the notes (see detectKeys). */
 export type GuideScale = ScaleId | 'auto';
-export type Guide = { on: boolean; root: number | null; scale: GuideScale; labels: LabelMode; v?: number };
+export type Guide = { on: boolean; root: number | null; scale: GuideScale; labels: LabelMode; v?: number; chord?: { deg: number; seventh: boolean } | null };
 const GUIDE_KEY = 'jfret:guide';
 function loadGuide(): Guide {
   const d: Guide = { on: false, root: null, scale: 'auto', labels: 'fret', v: 2 };
@@ -766,3 +769,39 @@ export function typeFret(digit: string) {
   const n = song.value.notes.find(m => ids.has(m.id));
   if (n && !playing.value) previewNote(n.string, n.fret);
 }
+
+// ---- marked sections of the open song (stored on its My tabs entry) ----
+export const songMarks = computed<Mark[]>(() => library.value.find(e => e.id === currentTabId.value)?.marks ?? []);
+
+/** Mark the current loop as a named section. A song that isn't in My tabs yet gets saved there first. */
+export function addMark(name: string) {
+  const lp = loop.value;
+  if (!lp || lp.end <= lp.start) return;
+  if (!currentTabId.value) saveToMyTabs();
+  const id = currentTabId.value!;
+  library.value = setMarks(library.value, id, [...songMarks.value, { id: newTabId(), name: name.trim() || `Section ${songMarks.value.length + 1}`, start: lp.start, end: lp.end }], Date.now());
+}
+export function removeMark(markId: string) {
+  const id = currentTabId.value;
+  if (id) library.value = setMarks(library.value, id, songMarks.value.filter(m => m.id !== markId), Date.now());
+}
+export function renameMark(markId: string, name: string) {
+  const id = currentTabId.value;
+  if (id) library.value = setMarks(library.value, id, songMarks.value.map(m => (m.id === markId ? { ...m, name: name.trim() || m.name } : m)), Date.now());
+}
+/** Loop a section (again: turn the loop off). */
+export function playMark(m: Mark) {
+  if (loopOn.value && loop.value?.start === m.start && loop.value.end === m.end) { loopOn.value = false; return; }
+  setLoop(m.start, m.end);
+  seek(m.start);
+}
+
+/** A chord of the guide scale to light up (Play's scale guide): its pitch classes and root, or null. */
+export const guideChord = computed<{ pcs: Set<number>; root: number } | null>(() => {
+  const g = guide.value, id = guideScaleId.value;
+  if (!g.chord || id === 'song') return null;
+  const cs = scaleChords(SCALES[id], g.chord.seventh);
+  const ch = cs[g.chord.deg] ?? cs[0];
+  const r = guideRoot.value;
+  return { pcs: new Set(ch.offsets.map(o => (((r + o) % 12) + 12) % 12)), root: (((r + ch.offsets[0]) % 12) + 12) % 12 };
+});

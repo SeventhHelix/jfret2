@@ -522,3 +522,38 @@ input.mt-bpm:hover, input.mt-bpm:focus { border-color: var(--line); }
 .lg.next { border: 2px dashed var(--accent); }
 .lg.both { background: hsl(230 60% 62%); box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--accent); }
 @media (max-width: 700px) { .changes { gap: 6px; } .ch-prog { width: 130px; } .ch-chord { min-width: 52px; padding: 3px 6px; } }
+
+/* Play: marked sections */
+.secs { gap: 6px; padding: 0 2px; }
+.secs-lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.sec-chip { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.sec-chip button { border: none; border-radius: 0; background: var(--panel2); padding: 3px 12px; font-size: 13px; }
+.sec-chip.on { border-color: var(--soft); }
+.sec-chip.on button { background: var(--soft); color: #fff; }
+.sec-chip .sec-x { padding: 3px 7px; font-size: 12px; }
+.sec-add { border-style: dashed; border-color: var(--soft); }
+/* a highlighted chord inside the scale guide: its tones strong, the other scale notes faint */
+.fb-cell.scale.chordtone .fb-dot { opacity: 1; width: 30px; height: 30px; transform: none; font-size: 12px; background: hsl(var(--ic) 55% 55%); border: 2px solid hsl(var(--ic) 70% 75%); color: #0e0c14; text-shadow: none; }
+.fb-cell.scale.chordtone.root .fb-dot { background: #f1ece0; border-color: #fff; color: #1b1712; }
+.fb-cell.scale.faint .fb-dot { opacity: 0.38; }
+
+/* Changes: arrows, sweet notes, readout, options */
+.nk-link { stroke-linecap: round; fill: none; }
+.nk-link.half { stroke: #ffb020; stroke-width: 3; opacity: 0.95; }
+.nk-link.step { stroke: #c9cfda; stroke-width: 2; opacity: 0.55; stroke-dasharray: 5 4; }
+.fb-cell.nk-tension .fb-dot { opacity: 1; transform: scale(0.8); background: hsl(var(--ic, 230) 45% 40% / 0.55); border: 1.5px solid hsl(var(--ic, 230) 60% 70%); color: #e8ecf3; }
+.fb-cell.nk-avoid .fb-dot { opacity: 0.95; transform: scale(0.6); background: transparent; border: 1.5px dashed #f8717199; color: var(--danger); }
+.fb-cell.nk-guide .fb-dot { transform: scale(1.08); }
+.fb-cell.nk-new::after { content: '★'; position: absolute; top: 2px; right: 6px; color: var(--accent); font-size: 12px; z-index: 3; pointer-events: none; text-shadow: 0 0 3px #000; }
+.ch-read { margin: 0; font-size: 14px; line-height: 1.5; color: #c9cfda; }
+.ch-read b { color: var(--text); }
+.ch-read .role { font-style: normal; color: var(--muted); font-size: 12px; }
+.ch-keep { font-weight: 700; color: var(--text); }
+.ch-half { color: var(--accent); font-weight: 600; }
+.ch-menu .opts-pop { width: 300px; right: 0; left: auto; }
+.lg.arrow { width: 18px; height: 3px; border-radius: 2px; background: #ffb020; vertical-align: 3px; }
+.lg.arrow.step { background: repeating-linear-gradient(90deg, #c9cfda 0 5px, transparent 5px 8px); }
+.lg.tension { background: hsl(230 45% 40% / 0.6); border: 1.5px solid hsl(230 60% 70%); }
+.lg.fresh::before { content: '★'; color: var(--accent); font-size: 12px; }
+.lg.fresh { width: auto; height: auto; }
+@media (max-width: 700px) { .ch-read .role { display: none; } .ch-read { font-size: 13px; } }

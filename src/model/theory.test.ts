@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SCALES, detectKeys, intervalName, scalePitchClasses, songPitchClasses, guessRoot } from './theory';
+import { SCALES, detectKeys, romanOf, scaleChords, intervalName, scalePitchClasses, songPitchClasses, guessRoot } from './theory';
 import { Note, emptySong } from './song';
 
 const n = (id: number, string: number, fret: number): Note => ({ id, start: id * 12, dur: 12, string, fret });
@@ -54,5 +54,23 @@ describe('key detection', () => {
   it('gives alternatives and nothing for no notes', () => {
     expect(detectKeys(run([0, 4, 7, 12], 48)).length).toBe(3);
     expect(detectKeys([])).toEqual([]);
+  });
+});
+
+describe('chords in a scale', () => {
+  it('harmonises the major scale', () => {
+    const cs = scaleChords(SCALES.major, false);
+    expect(cs.map(c => c.quality)).toEqual(['', 'm', 'm', '', '', 'm', 'dim']);
+    expect(scaleChords(SCALES.major, true).map(c => c.quality)).toEqual(['maj7', 'm7', 'm7', 'maj7', '7', 'm7', 'm7b5']);
+    expect(cs[4].offsets).toEqual([7, 11, 14]); // V = G B D in C
+  });
+  it('pentatonics just give the home chord', () => {
+    expect(scaleChords(SCALES.minorPent, false)).toEqual([{ deg: 0, offsets: [0, 3, 7], quality: 'm' }]);
+  });
+  it('roman labels', () => {
+    expect(romanOf(1, 'm7')).toBe('ii7');
+    expect(romanOf(4, '7')).toBe('V7');
+    expect(romanOf(6, 'm7b5')).toBe('viiø7');
+    expect(romanOf(6, 'dim')).toBe('vii°');
   });
 });

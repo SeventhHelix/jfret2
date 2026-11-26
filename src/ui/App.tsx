@@ -14,6 +14,7 @@ import { Learn } from './Learn';
 import { Speed } from './Speed';
 import { Metro } from './Metro';
 import { Changes } from './Changes';
+import { SectionsBar } from './SectionsBar';
 
 /** Dropping a Guitar Pro file anywhere on the page opens the import dialog. */
 function useFileDrop() {
@@ -50,6 +51,7 @@ export function App() {
       <NoteEditor />
       {errorMsg.value && <div class="error" onClick={() => { errorMsg.value = null; }}>{errorMsg.value} (click to dismiss)</div>}
       <Transport />
+      <SectionsBar />
       {l.panels.filter(p => p.on).map(p => <Fragment key={p.id}>{panel(p.id)}</Fragment>)}
       {!l.panels.some(p => p.on) && <p class="muted empty-view">All panels are hidden. Turn some back on in <b>▦ View</b>.</p>}
     </div>

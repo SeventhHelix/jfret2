@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GpBar, GpNote, GpScore, GpTrack, barCounts, extractSection, fitTuning, sections } from './gpScore';
+import { GpBar, GpNote, GpScore, GpTrack, barCounts, extractSection, fitTuning, sectionMarks, sections } from './gpScore';
 
 const STD = [64, 59, 55, 50, 45, 40];
 const bar = (i: number, extra: Partial<GpBar> = {}): GpBar => ({ start: i * 96, num: 4, den: 4, tempo: 120, repeat: false, ...extra });
@@ -143,5 +143,13 @@ describe('extractSection', () => {
       { start: 0, dur: 12, string: 0, fret: 5 },
       { start: 12, dur: 12, string: 0, fret: 7 },
     ]);
+  });
+});
+
+describe('sectionMarks', () => {
+  it('the file\'s sections inside an import become marks, from the import start', () => {
+    const sc = score([track([])], [bar(0, { section: 'Intro' }), bar(1, { section: 'Solo A' }), bar(2), bar(3, { section: 'Solo B' })]);
+    expect(sectionMarks(sc, 1, 3)).toEqual([{ name: 'Solo A', start: 0, end: 192 }, { name: 'Solo B', start: 192, end: 288 }]);
+    expect(sectionMarks(sc, 1, 2)).toEqual([]); // one section: nothing to jump between
   });
 });

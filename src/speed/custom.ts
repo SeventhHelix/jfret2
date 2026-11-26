@@ -13,6 +13,7 @@ export type CustomRiff = {
   key: number;           // guide root pitch class
   scale: GuideScale;     // guide scale, or 'custom' = exactly the notes in `custom`
   custom: number[];      // pitch classes for the custom guide
+  chord?: { deg: number; seventh: boolean } | null; // a chord of the scale to light up (its tones bright, the rest faint)
   steps: Step[];
   updated: number;
 };

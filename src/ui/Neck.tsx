@@ -12,7 +12,7 @@ const MIN_FRET_W = 40;
 const SINGLE_DOTS = [3, 5, 7, 9, 15, 17, 19, 21];
 const DOUBLE_DOTS = [12, 24];
 
-export function Neck({ marks, region, view, onTap, shapes, focus, glide, onFret }: {
+export function Neck({ marks, region, view, onTap, shapes, focus, glide, onFret, links }: {
   marks: Map<string, NeckMark>;
   region?: Region | null;
   view: { lo: number; hi: number };
@@ -20,7 +20,8 @@ export function Neck({ marks, region, view, onTap, shapes, focus, glide, onFret 
   shapes?: Pos[][];
   focus?: { lo: number; hi: number } | null; // frets to keep in view (default: the region)
   glide?: boolean;
-  onFret?: (fret: number) => void;           // a fret number below the neck was clicked                           // scroll smoothly (following playback)
+  onFret?: (fret: number) => void;
+  links?: { from: Pos; to: Pos; cls: string }[]; // arrows between spots (Changes: where each note goes next)           // a fret number below the neck was clicked                           // scroll smoothly (following playback)
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [avail, setAvail] = useState(0);
@@ -80,11 +81,25 @@ export function Neck({ marks, region, view, onTap, shapes, focus, glide, onFret 
           ])}
           {Array.from({ length: 6 }, (_, i) => <div key={i} class="fb-string" style={{ top: i * ROW_H + ROW_H / 2, height: 1 + i * 0.5 }} />)}
           {shades}
-          {shapes && shapes.length > 0 && (
+          {((shapes && shapes.length > 0) || (links && links.length > 0)) && (
             <svg class="nk-shapes" width={width} height={height} aria-hidden="true">
-              {shapes.map((sh, i) => (
+              <defs>
+                {[['half', '#ffb020'], ['step', '#c9cfda']].map(([id, c]) => (
+                  <marker key={id} id={`nk-arrow-${id}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+                    <path d="M0 0 L10 5 L0 10 z" fill={c} />
+                  </marker>
+                ))}
+              </defs>
+              {shapes?.map((sh, i) => (
                 <polyline key={i} points={sh.map(p => `${midX(p.fret)},${p.string * ROW_H + ROW_H / 2}`).join(' ')} />
               ))}
+              {links?.map((l, i) => {
+                // From edge to edge of the two dots, so the arrow doesn't hide under them.
+                const x1 = midX(l.from.fret), y1 = l.from.string * ROW_H + ROW_H / 2, x2 = midX(l.to.fret), y2 = l.to.string * ROW_H + ROW_H / 2;
+                const d = Math.hypot(x2 - x1, y2 - y1) || 1, cut = 17 / d;
+                return <line key={`l${i}`} class={`nk-link ${l.cls}`} x1={x1 + (x2 - x1) * cut} y1={y1 + (y2 - y1) * cut}
+                  x2={x2 - (x2 - x1) * cut} y2={y2 - (y2 - y1) * cut} marker-end={`url(#nk-arrow-${l.cls === 'half' ? 'half' : 'step'})`} />;
+              })}
             </svg>
           )}
           {Array.from({ length: 6 }, (_, s) =>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { TUNINGS } from '../model/song';
-import { GpScore, barCounts, describeFit, extractSection, fitTuning, sections } from '../import/gpScore';
+import { GpScore, barCounts, describeFit, extractSection, fitTuning, sectionMarks, sections } from '../import/gpScore';
 import { importFile, importSong } from '../state/store';
 import { GpTabPreview } from './GpTabPreview';
 
@@ -127,7 +127,7 @@ export function ImportDialog({ file }: { file: File }) {
 
         <div class="modal-foot">
           <button onClick={close}>Cancel</button>
-          <button class="primary" disabled={!result || result.noteCount === 0} onClick={() => s && importSong(s)}
+          <button class="primary" disabled={!result || result.noteCount === 0} onClick={() => s && importSong(s, score ? sectionMarks(score, range.first, range.last) : [])}
             title="Replaces the current riff. Undo brings it back.">
             {result && result.noteCount === 0 ? 'No notes in these bars' : 'Import'}
           </button>

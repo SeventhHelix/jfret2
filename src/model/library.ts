@@ -1,6 +1,9 @@
 // "My tabs": songs saved in this browser (localStorage), each with its notes and its own practice settings.
 // One entry is one logical song: edits keep saving into it even though the URL changes as you go.
 
+/** A named part of a song you come back to (a sweep run, the alternate-picking bit): a tick range. */
+export type Mark = { id: string; name: string; start: number; end: number };
+
 export type TabEntry = {
   id: string;
   title: string;
@@ -8,6 +11,7 @@ export type TabEntry = {
   practice: string; // its practice/sound params, as in the link ("&sp=75&lp=...")
   created: number;
   updated: number;
+  marks?: Mark[];   // sections you marked (or the Guitar Pro file's own section names)
 };
 
 export function newTabId(): string {
@@ -22,7 +26,19 @@ export function readLibrary(raw: unknown): TabEntry[] {
     id: e.id, title: typeof e.title === 'string' ? e.title : '', payload: e.payload,
     practice: typeof e.practice === 'string' ? e.practice : '',
     created: Number(e.created) || 0, updated: Number(e.updated) || 0,
+    ...(Array.isArray(e.marks) ? { marks: readMarks(e.marks) } : {}),
   }));
+}
+
+function readMarks(raw: unknown[]): Mark[] {
+  return raw.filter((m): m is Mark => !!m && typeof m === 'object' && typeof (m as Mark).id === 'string'
+    && Number.isFinite((m as Mark).start) && Number.isFinite((m as Mark).end) && (m as Mark).end > (m as Mark).start)
+    .map(m => ({ id: m.id, name: String(m.name ?? ''), start: m.start, end: m.end }));
+}
+
+/** Replace an entry's sections (kept in song order). */
+export function setMarks(lib: TabEntry[], id: string, marks: Mark[], now: number): TabEntry[] {
+  return lib.map(x => (x.id === id ? { ...x, marks: [...marks].sort((a, b) => a.start - b.start || a.end - b.end), updated: now } : x));
 }
 
 export function addTab(lib: TabEntry[], e: Omit<TabEntry, 'id' | 'created' | 'updated'>, now: number, id = newTabId()): { lib: TabEntry[]; id: string } {

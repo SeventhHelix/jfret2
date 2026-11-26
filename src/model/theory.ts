@@ -143,3 +143,30 @@ export function scaleForRoot(notes: Weighted[], root: number, beat = 24): ScaleI
   for (const n of notes) hist[pc(n.pitch)] += Math.min(n.dur, beat * 2);
   return hist[pc(root + 3)] > hist[pc(root + 4)] ? 'minor' : 'major';
 }
+
+/** Chords you can highlight inside a scale: for a 7-note scale each degree's triad (or 7th chord) built from the
+ *  scale itself; for anything else just the home chord. Values are semitone offsets from the scale root. */
+export function scaleChords(steps: number[], seventh: boolean): { deg: number; offsets: number[]; quality: string }[] {
+  const qual = (o: number[]) => {
+    const third = pc(o[1] - o[0]), fifth = pc(o[2] - o[0]), sev = o[3] === undefined ? null : pc(o[3] - o[0]);
+    const base = third === 4 ? (fifth === 8 ? 'aug' : '') : fifth === 6 ? (sev === 10 ? 'm7b5' : 'dim') : 'm';
+    if (sev === null || base === 'm7b5') return base;
+    return base === '' ? (sev === 11 ? 'maj7' : '7') : base === 'm' ? (sev === 10 ? 'm7' : 'm(maj7)') : base + '7';
+  };
+  if (steps.length === 7) {
+    return steps.map((_, d) => {
+      const o = [0, 2, 4, ...(seventh ? [6] : [])].map(k => steps[(d + k) % 7] + (d + k >= 7 ? 12 : 0));
+      return { deg: d, offsets: o, quality: qual(o) };
+    });
+  }
+  const third = steps.includes(3) && !steps.includes(4) ? 3 : 4;
+  const o = [0, third, 7, ...(seventh ? [steps.includes(10) ? 10 : 11] : [])];
+  return [{ deg: 0, offsets: o, quality: qual(o) }];
+}
+export const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+/** "ii", "V7", "vii°"... for a highlighted chord. */
+export function romanOf(deg: number, quality: string): string {
+  const minorish = quality.startsWith('m') || quality.startsWith('dim');
+  const r = minorish ? ROMAN[deg].toLowerCase() : ROMAN[deg];
+  return r + (quality.startsWith('dim') ? '°' : quality === 'm7b5' ? 'ø7' : quality.replace(/^m(?!aj)/, ''));
+}
