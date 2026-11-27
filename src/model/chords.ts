@@ -82,21 +82,27 @@ export function parseProgression(text: string, key: number): { chords: Chord[]; 
   return { chords, bad };
 }
 
+// Every preset is 4 chords long, so it loops evenly (4 bars, or 8 at 2 bars a chord).
 export const PRESETS: [string, string][] = [
-  ['I IV V', '1-4-5'],
-  ['ii7 V7 Imaj7', '2-5-1 (jazz)'],
-  ['ii V I', '2-5-1 (triads)'],
+  ['I IV I V', '1-4-1-5'],
+  ['ii7 V7 Imaj7 Imaj7', '2-5-1 (jazz)'],
+  ['ii V I I', '2-5-1 (triads)'],
   ['I V vi IV', 'Pop (1-5-6-4)'],
   ['vi IV I V', '6-4-1-5'],
   ['I vi IV V', '50s (1-6-4-5)'],
   ['Imaj7 VI7 ii7 V7', 'Turnaround (1-6-2-5)'],
-  ['i bVI bVII', 'Minor rock (1-b6-b7)'],
-  ['i iv v', 'Minor 1-4-5'],
-  ['i iv V7', 'Minor with V7'],
-  ['iiø7 V7 i', 'Minor 2-5-1'],
+  ['i bVI bVII i', 'Minor rock (1-b6-b7-1)'],
+  ['i iv i v', 'Minor 1-4-1-5'],
+  ['i iv V7 i', 'Minor with V7'],
+  ['iiø7 V7 i i', 'Minor 2-5-1'],
   ['I III IV iv', 'Major with borrowed iv'],
   ['I7 IV7 I7 V7', 'Blues changes'],
 ];
+/** The old 3-chord presets, and their 4-chord versions (so a saved choice still shows as a preset). */
+export const OLD_PRESETS: Record<string, string> = {
+  'I IV V': 'I IV I V', 'ii7 V7 Imaj7': 'ii7 V7 Imaj7 Imaj7', 'ii V I': 'ii V I I', 'i bVI bVII': 'i bVI bVII i',
+  'i iv v': 'i iv i v', 'i iv V7': 'i iv V7 i', 'iiø7 V7 i': 'iiø7 V7 i i',
+};
 
 /** The 3rd and 7th: the "guide tones" that decide what a chord sounds like. */
 export function guideTones(c: Chord): number[] {

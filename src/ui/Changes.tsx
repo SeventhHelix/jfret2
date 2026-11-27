@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { Neck, NeckMark } from './Neck';
 import { SectionNav } from './SectionNav';
-import { Chord, PRESETS, changeMap, chordScale, guideTones, newNotes, parseProgression } from '../model/chords';
+import { Chord, OLD_PRESETS, PRESETS, changeMap, chordScale, guideTones, newNotes, parseProgression } from '../model/chords';
 import { ALL_STRINGS, Pos, Region, STD, intervalLabel, keyName, pcAt, pitchAt, posKey, positionsOf, spell, triadShapes } from '../learn/fretmap';
 import { SCALES, pc } from '../model/theory';
 import { Player } from '../audio/player';
@@ -22,11 +22,16 @@ type Cfg = {
   next: boolean; arrows: boolean; readout: boolean; backing: boolean; click: boolean;
 };
 const DEFAULT: Cfg = {
-  key: 0, prog: 'ii7 V7 Imaj7', bars: 1, bpm: 80, show: 'arp', lo: 5, width: 5,
+  key: 0, prog: 'ii7 V7 Imaj7 Imaj7', bars: 1, bpm: 80, show: 'arp', lo: 5, width: 5,
   next: true, arrows: true, readout: true, backing: true, click: true,
 };
 const KEY = 'jfret:changes';
-const load = (): Cfg => { try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') }; } catch { return DEFAULT; } };
+const load = (): Cfg => {
+  try {
+    const c: Cfg = { ...DEFAULT, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') };
+    return { ...c, prog: OLD_PRESETS[c.prog] ?? c.prog }; // the 3-chord presets became 4-chord loops
+  } catch { return DEFAULT; }
+};
 const cfg = signal<Cfg>(load());
 const set = (p: Partial<Cfg>) => { cfg.value = { ...cfg.value, ...p }; try { localStorage.setItem(KEY, JSON.stringify(cfg.value)); } catch { /* ignore */ } };
 

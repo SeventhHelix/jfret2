@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changeMap, chordScale, guideTones, newNotes, parseProgression, parseRoman, parseSymbol } from './chords';
+import { OLD_PRESETS, PRESETS, changeMap, chordScale, guideTones, newNotes, parseProgression, parseRoman, parseSymbol } from './chords';
 
 describe('roman numerals', () => {
   it('2-5-1 in C with sevenths', () => {
@@ -73,5 +73,16 @@ describe('sweet notes per chord', () => {
     const [ii, V, i] = parseProgression('iiø7 V7 i', 0).chords;
     expect(at(chordScale(V, 0, i), 8)).toMatchObject({ label: 'b9', tier: 'tension' }); // Ab over G7
     expect(at(chordScale(ii, 0), 3)).toMatchObject({ label: 'b9', tier: 'avoid' });     // Eb over Dm7b5
+  });
+});
+
+describe('presets', () => {
+  it('are all 4 chords and all readable, in every key', () => {
+    for (const [p] of PRESETS) for (let k = 0; k < 12; k++) {
+      const { chords, bad } = parseProgression(p, k);
+      expect(bad).toEqual([]);
+      expect(chords).toHaveLength(4);
+    }
+    for (const v of Object.values(OLD_PRESETS)) expect(PRESETS.some(([p]) => p === v)).toBe(true);
   });
 });
