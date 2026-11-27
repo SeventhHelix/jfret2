@@ -208,7 +208,13 @@ export function Changes() {
     const base: Show = c.show === 'scale' || c.show === 'colour' ? 'arp' : c.show;
     if (c.show === 'scale') {
       const steps = minorKey ? SCALES.minor : SCALES.major;
-      for (const p of positionsOf(steps.map(s => pc(c.key + s)), r)) marks.set(posKey(p), { label: lbl(p, cur), cls: 'scale', style: style(p, cur) });
+      // The key's other notes, named the way they sound over this chord (9, 11, #11, 13...); chord tones go on top below.
+      const named = new Map(chordScale(cur, c.key, nxt).map(t => [t.pc, t.label]));
+      const ext: Record<number, string> = { 1: 'b9', 2: '9', 5: '11', 6: cur.tones.includes(4) ? '#11' : 'b5', 8: 'b13', 9: '13' };
+      for (const p of positionsOf(steps.map(s => pc(c.key + s)), r)) {
+        const iv = pc(pcAt(p) - cur.root);
+        marks.set(posKey(p), { label: named.get(pcAt(p)) ?? ext[iv] ?? lbl(p, cur), cls: 'nk-scale' });
+      }
     }
     if (c.show === 'colour') {
       // Tensions and avoid notes first; chord tones are drawn over them below.
@@ -301,6 +307,7 @@ export function Changes() {
           {c.next && n > 1 && <span><i class="lg both" /> in both</span>}
           {c.arrows && c.next && n > 1 && <span><i class="lg arrow" /> half step <i class="lg arrow step" /> whole step</span>}
           {c.show === 'colour' && <span><i class="lg tension" /> tension · <b>×</b> avoid · <i class="lg fresh" /> new in this chord</span>}
+          {c.show === 'scale' && <span><i class="lg scale" /> other notes of the key</span>}
           <span>Click a fret number to move the box</span>
         </div>
       </div>
