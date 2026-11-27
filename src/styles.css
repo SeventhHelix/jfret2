@@ -168,11 +168,11 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 .roll-note.out { box-shadow: inset 0 0 0 1px var(--danger); }
 .roll-note.out::after { background: linear-gradient(225deg, var(--danger) 0 6px, transparent 6px); width: 10px; }
 
-/* scale-tone hints: lifted above the string so the label isn't crossed out, faintly coloured by interval */
+/* scale-tone hints: on the string, a solid dark disc so the string doesn't cross the label, faintly coloured by interval */
 .fb-cell.scale .fb-dot {
-  transform: translateY(-13px) scale(0.74);
-  background: hsl(var(--ic) 55% 55% / 0.2); border: 1.5px solid hsl(var(--ic) 70% 68% / 0.6);
-  color: hsl(var(--ic) 85% 82%); font-size: 13px; text-shadow: 0 1px 2px #000c;
+  transform: none;
+  background: #1a1612; box-shadow: inset 0 0 0 30px hsl(var(--ic) 55% 55% / 0.16); border: 1.5px solid hsl(var(--ic) 70% 68% / 0.7);
+  color: hsl(var(--ic) 85% 84%); font-size: 12px; font-weight: 700;
 }
 .fb-cell.scale.root .fb-dot { background: #f1ece033; border: 2px solid #f1ece0; color: #fff; }
 .fb-cell.scale:hover .fb-dot { transform: scale(0.9); background: #f1ece0e6; color: #1b1712; text-shadow: none; }
@@ -182,8 +182,8 @@ button.mini { font-size: 12px; padding: 2px 9px; }
 .sn.root small { color: #fff; }
 .tv-tuplet { fill: var(--muted); font-size: 11px; font-weight: 700; font-style: italic; text-anchor: middle; }
 .tv-bracket { fill: none; stroke: var(--muted); stroke-width: 1; }
-/* slightly smaller scale-tone circles, same text size as before (13px × 0.74 ≈ 9.6px) */
-.fb-cell.scale .fb-dot { width: 23px; height: 23px; transform: translateY(-13px); font-size: 9.6px; }
+/* scale-tone circles: smaller than riff notes, readable text */
+.fb-cell.scale .fb-dot { width: 26px; height: 26px; transform: none; font-size: 11.5px; }
 .fb-cell.scale:hover .fb-dot { width: 34px; height: 34px; font-size: 13px; transform: scale(0.9); }
 
 /* Display options popover */
@@ -535,7 +535,7 @@ input.mt-bpm:hover, input.mt-bpm:focus { border-color: var(--line); }
 /* a highlighted chord inside the scale guide: its tones strong, the other scale notes faint */
 .fb-cell.scale.chordtone .fb-dot { opacity: 1; width: 30px; height: 30px; transform: none; font-size: 12px; background: hsl(var(--ic) 55% 55%); border: 2px solid hsl(var(--ic) 70% 75%); color: #0e0c14; text-shadow: none; }
 .fb-cell.scale.chordtone.root .fb-dot { background: #f1ece0; border-color: #fff; color: #1b1712; }
-.fb-cell.scale.faint .fb-dot { opacity: 0.38; }
+.fb-cell.scale.faint .fb-dot { opacity: 0.6; }
 
 /* Changes: arrows, sweet notes, readout, options */
 .nk-link { stroke-linecap: round; fill: none; }
