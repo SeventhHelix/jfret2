@@ -541,8 +541,8 @@ input.mt-bpm:hover, input.mt-bpm:focus { border-color: var(--line); }
 .nk-link { stroke-linecap: round; fill: none; }
 .nk-link.half { stroke: #ffb020; stroke-width: 3; opacity: 0.95; }
 .nk-link.step { stroke: #c9cfda; stroke-width: 2; opacity: 0.55; stroke-dasharray: 5 4; }
-/* tensions: their own shape and colour (a light square), so they never read as chord tones */
-.fb-cell.nk-tension .fb-dot { opacity: 1; transform: scale(0.8); border-radius: 6px; background: #e8ecf3; border: 2px solid #ffffff; color: #1b1712; font-weight: 700; }
+/* tensions: a small, quiet grey square: there if you want colour, never competing with the chord tones */
+.fb-cell.nk-tension .fb-dot { opacity: 0.75; transform: scale(0.66); border-radius: 6px; background: #14161bcc; border: 1px solid #8b93a3; color: #aab2c0; font-weight: 600; }
 .fb-cell.nk-avoid .fb-dot { opacity: 0.95; transform: scale(0.6); background: transparent; border: 1.5px dashed #f8717199; color: var(--danger); }
 .fb-cell.nk-guide .fb-dot { transform: scale(1.08); }
 .fb-cell.nk-new::after { content: '★'; position: absolute; top: 2px; right: 6px; color: var(--accent); font-size: 12px; z-index: 3; pointer-events: none; text-shadow: 0 0 3px #000; }
@@ -554,7 +554,7 @@ input.mt-bpm:hover, input.mt-bpm:focus { border-color: var(--line); }
 .ch-menu .opts-pop { width: 300px; right: 0; left: auto; }
 .lg.arrow { width: 18px; height: 3px; border-radius: 2px; background: #ffb020; vertical-align: 3px; }
 .lg.arrow.step { background: repeating-linear-gradient(90deg, #c9cfda 0 5px, transparent 5px 8px); }
-.lg.tension { background: #e8ecf3; border-radius: 3px; }
+.lg.tension { background: transparent; border: 1px solid #8b93a3; border-radius: 3px; width: 10px; height: 10px; }
 .lg.fresh::before { content: '★'; color: var(--accent); font-size: 12px; }
 .lg.fresh { width: auto; height: auto; }
 @media (max-width: 700px) { .ch-read .role { display: none; } .ch-read { font-size: 13px; } }
